@@ -22,7 +22,7 @@ def compute_dists(x_data, x_kernel):
     # return torch.cdist(x_data, x_kernel, compute_mode='donot_use_mm_for_euclid_dist') ** 2
 
 
-def nll(dists, log_sigmas, dim, detailed=False):
+def nll(dists, log_sigmas, dim, detailed=False, lambd=0):
     """Computes the negative KDE log-likelihood using the distances between x_data and x_kernel
 
     Args:
@@ -45,7 +45,9 @@ def nll(dists, log_sigmas, dim, detailed=False):
 
     bits_per_dim = (-torch.mean(inner_term) / dim) / np.log(2)
     final_nll = torch.mean(-inner_term)
+    reg_term = lambd / 2 * torch.norm(torch.exp(-log_sigmas))**2
     # final_nll = bits_per_dim
+    final_nll += reg_term
 
     if detailed:
         return final_nll, -inner_term
@@ -53,7 +55,7 @@ def nll(dists, log_sigmas, dim, detailed=False):
     return final_nll
 
 
-def optimize_sigmas(x_data, x_kernel, init_val=1, verbose=False):
+def optimize_sigmas(x_data, x_kernel, init_val=1, verbose=False, lambd=0):
     """Find the sigmas that minimize the NLL of x_data under a kernel given by x_kernel
 
     Args:
@@ -83,7 +85,7 @@ def optimize_sigmas(x_data, x_kernel, init_val=1, verbose=False):
     # print(dists.min(dim=0).values.max())
 
     for i in range(100):
-        loss = nll(dists, log_sigmas, dim)
+        loss = nll(dists, log_sigmas, dim, lambd=lambd)
 
         optim.zero_grad()
         loss.backward()
