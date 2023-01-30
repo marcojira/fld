@@ -84,6 +84,6 @@ class FID(Metric):
         plot=False,
     ):
         mu1, sigma1 = get_activation_statistics(gen_feat.cpu().numpy())
-        mu2, sigma2 = get_activation_statistics(test_feat.cpu().numpy())
+        mu2, sigma2 = get_activation_statistics(train_feat.cpu().numpy())
 
         return calculate_frechet_distance(mu1, sigma1, mu2, sigma2)

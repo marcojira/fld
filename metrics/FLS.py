@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import math
 from torchvision import transforms as TF
 from fls.metrics.Metric import Metric
+from sklearn.decomposition import PCA
 
 
 def tensor_to_numpy(tensor):
@@ -15,14 +16,14 @@ def compute_dists(x_data, x_kernel):
     """Returns the dists tensor of all L2^2 distances between samples from x_data and x_kernel"""
     dists = (torch.cdist(x_data, x_kernel)) ** 2
     # dists = dists.topk(5, dim=0, largest=False).values
-    return dists
+    return dists.detach()
     # return (
     #     torch.cdist(x_data, x_kernel, compute_mode="donot_use_mm_for_euclid_dist")
     # ) ** 2
     # return torch.cdist(x_data, x_kernel, compute_mode='donot_use_mm_for_euclid_dist') ** 2
 
 
-def nll(dists, log_sigmas, dim, detailed=False, lambd=0):
+def nll(dists, log_sigmas, dim, detailed=False):
     """Computes the negative KDE log-likelihood using the distances between x_data and x_kernel
 
     Args:
@@ -45,9 +46,7 @@ def nll(dists, log_sigmas, dim, detailed=False, lambd=0):
 
     bits_per_dim = (-torch.mean(inner_term) / dim) / np.log(2)
     final_nll = torch.mean(-inner_term)
-    reg_term = lambd / 2 * torch.norm(torch.exp(-log_sigmas))**2
     # final_nll = bits_per_dim
-    final_nll += reg_term
 
     if detailed:
         return final_nll, -inner_term
@@ -55,7 +54,7 @@ def nll(dists, log_sigmas, dim, detailed=False, lambd=0):
     return final_nll
 
 
-def optimize_sigmas(x_data, x_kernel, init_val=1, verbose=False, lambd=0):
+def optimize_sigmas(x_data, x_kernel, init_val=1, verbose=False):
     """Find the sigmas that minimize the NLL of x_data under a kernel given by x_kernel
 
     Args:
@@ -85,7 +84,7 @@ def optimize_sigmas(x_data, x_kernel, init_val=1, verbose=False, lambd=0):
     # print(dists.min(dim=0).values.max())
 
     for i in range(100):
-        loss = nll(dists, log_sigmas, dim, lambd=lambd)
+        loss = nll(dists, log_sigmas, dim)
 
         optim.zero_grad()
         loss.backward()
@@ -147,6 +146,18 @@ class FLS(Metric):
     def compute_metric(
         self, train_feat, baseline_feat, test_feat, gen_feat, plot=False
     ):
+
+        # pca_xf = PCA(n_components=64).fit(train_feat)
+        # train_feat = pca_xf.transform(train_feat)
+        # baseline_feat = pca_xf.transform(baseline_feat)
+        # test_feat = pca_xf.transform(test_feat)
+        # gen_feat = pca_xf.transform(gen_feat)
+
+        # train_feat = torch.from_numpy(train_feat).float()
+        # baseline_feat = torch.from_numpy(baseline_feat).float()
+        # test_feat = torch.from_numpy(test_feat).float()
+        # gen_feat = torch.from_numpy(gen_feat).float()
+
         # Assert correct device
         train_feat = train_feat.cuda()
         baseline_feat = baseline_feat.cuda()
@@ -170,16 +181,36 @@ class FLS(Metric):
 
         # Different modes yield different scores
         if self.mode == "overfit_recall":
-
             train_log_sigmas, train_losses = optimize_sigmas(
                 train_feat, gen_feat, init_val=0
             )
-            test_nll = evaluate_set(test_feat, gen_feat, train_log_sigmas)
 
-            diff = (test_nll[0].item() - min(train_losses)) / np.sqrt(
-                train_feat.shape[1]
+            def get_pairwise_likelihood(x_data, x_kernel, sigmas):
+                dists = compute_dists(x_data, x_kernel)
+                exponent_term = (-0.5 * dists) / torch.exp(sigmas)
+                exponent_term -= (x_kernel.shape[1] / 2) * sigmas
+                "FLS Overfit", "FID"
+                return exponent_term
+
+            size = min(test_feat.shape[0], train_feat.shape[0])
+
+            train_lls = get_pairwise_likelihood(
+                train_feat[:size], gen_feat, train_log_sigmas
             )
-            return math.e ** (-diff) * 100
+            test_lls = get_pairwise_likelihood(
+                test_feat[:size], gen_feat, train_log_sigmas
+            )
+
+            ll_diff = train_lls.logsumexp(axis=0) - test_lls.logsumexp(axis=0)
+            score = ((ll_diff > 0).sum().item() / ll_diff.shape[0]) * 100
+            print(score)
+            return score
+            # test_nll = evaluate_set(test_feat, gen_feat, train_log_sigmas)
+
+            # diff = (test_nll[0].item() - min(train_losses)) / np.sqrt(
+            #     train_feat.shape[1]
+            # )
+            # return math.e ** (-diff) * 100
 
         if self.mode == "complete_recall":
             gen_log_sigmas, gen_losses = optimize_sigmas(
@@ -195,10 +226,11 @@ class FLS(Metric):
             )
             baseline_nll = baseline_nlls[0].item()
 
-            print(f"{gen_nll}, {baseline_nll}")
+            diff = 2 * (gen_nll - baseline_nll) / train_feat.shape[1]
 
-            diff = (gen_nll - baseline_nll) / np.sqrt(train_feat.shape[1])
-            return math.e ** (-diff) * 100
+            score = math.e ** (-diff) * 100
+            # print(score)
+            return score
 
             # return diff_over_mean(gen_nll, baseline_nll)
 
@@ -228,13 +260,13 @@ class FLS(Metric):
     ):
         # Get features and indices from datasets
         train_feat, train_idxs = feature_extractor.get_features(
-            train_dataset, get_indices=True, size=50000
+            train_dataset, get_indices=True, size=min(len(train_dataset), 30000)
         )
         test_feat, test_idxs = feature_extractor.get_features(
-            test_dataset, size=10000, get_indices=True
+            test_dataset, get_indices=True, size=min(len(test_dataset), 10000)
         )
         gen_feat, gen_idxs = feature_extractor.get_features(
-            gen_dataset, size=10000, get_indices=True
+            gen_dataset, get_indices=True, size=min(len(gen_dataset), 10000)
         )
 
         train_feat = train_feat.cuda()
@@ -246,37 +278,62 @@ class FLS(Metric):
             train_feat, gen_feat, init_val=0, verbose=False
         )
 
-        def get_pairwise_likelihood(x_data, x_kernel, sigmas):
-            dists = compute_dists(x_data, x_kernel)
-            exponent_term = (-0.5 * dists) / torch.exp(sigmas)
-            exponent_term -= (x_kernel.shape[1] / 2) * sigmas
-            return exponent_term
+        with torch.no_grad():
 
-        train_lls = get_pairwise_likelihood(train_feat, gen_feat, gen_log_sigmas)
-        test_lls = get_pairwise_likelihood(test_feat, gen_feat, gen_log_sigmas)
+            def get_pairwise_likelihood(x_data, x_kernel, sigmas):
+                dists = compute_dists(x_data, x_kernel)
+                exponent_term = (-0.5 * dists) / torch.exp(sigmas)
+                exponent_term -= (x_kernel.shape[1] / 2) * sigmas
+                return exponent_term
 
-        # Get likelihood of train set/test set for each Gaussian and look at
-        # gaussians with biggest discrepancies
-        ll_diff = train_lls.logsumexp(axis=0) - test_lls.logsumexp(axis=0)
-        top_diffs = ll_diff.topk(3, largest=True).indices
+            train_lls = get_pairwise_likelihood(train_feat, gen_feat, gen_log_sigmas)
+            test_lls = get_pairwise_likelihood(test_feat, gen_feat, gen_log_sigmas)
 
-        overfit_grids = []  # Store the grids of overfitting samples
-        for diff in top_diffs:
-            # Add overfitting generated sample as first image of grid
-            gen_idx = diff.item()
-            overfit_grid = [gen_dataset[gen_idxs[gen_idx]][0]]
+            # Get likelihood of train set/test set for each Gaussian and look at
+            # gaussians with biggest discrepancies
+            ll_diff = train_lls.logsumexp(axis=0) - test_lls.logsumexp(axis=0)
 
-            # Add 2 highest likelihood train samples to grid as next 2 images
-            top_train_sample_lls = train_lls[:, gen_idx].topk(2, largest=True).indices
-            for train_idx in top_train_sample_lls:
-                overfit_grid.append(train_dataset[train_idxs[train_idx.item()]][0])
+            def get_top(top_diffs):
+                top_diffs_idxs, top_diffs_vals = top_diffs.indices, top_diffs.values
 
-            # Add 2 highest likelihood test samples to grid as next 2 images (as comparison)
-            top_test_sample_lls = test_lls[:, gen_idx].topk(2, largest=True).indices
-            for test_idx in top_test_sample_lls:
-                overfit_grid.append(test_dataset[test_idxs[test_idx.item()]][0])
+                overfit_grids = []  # Store the grids of overfitting samples
+                for idx, diff in zip(top_diffs_idxs, top_diffs_vals):
+                    # Add overfitting generated sample as first image of grid
+                    gen_idx = idx.item()
+                    overfit_grid = [gen_dataset[gen_idxs[gen_idx]][0]]
 
-            overfit_grid = [TF.ToTensor()(img) for img in overfit_grid]
-            overfit_grids.append(overfit_grid)
+                    # Add 2 highest likelihood train samples to grid as next 2 images
+                    top_train_sample_lls = (
+                        train_lls[:, gen_idx].topk(5, largest=True).indices
+                    )
+                    for train_idx in top_train_sample_lls:
+                        overfit_grid.append(
+                            train_dataset[train_idxs[train_idx.item()]][0]
+                        )
 
-        return overfit_grids
+                    # Add 2 highest likelihood test samples to grid as next 2 images (as comparison)
+                    top_test_sample_lls = (
+                        test_lls[:, gen_idx].topk(1, largest=True).indices
+                    )
+                    for test_idx in top_test_sample_lls:
+                        overfit_grid.append(test_dataset[test_idxs[test_idx.item()]][0])
+
+                    overfit_grids.append((overfit_grid, diff.item()))
+                return overfit_grids
+
+            underfit_grids = get_top(ll_diff.topk(3, largest=False))
+            overfit_grids = get_top(ll_diff.topk(3, largest=True))
+
+            # Nearest neighbor
+            def get_nns():
+                dists = compute_dists(train_feat, gen_feat)
+                dists.fill_diagonal_(float("inf"))
+                idx1, idx2 = np.unravel_index(dists.argmin().item(), dists.shape)
+                top_nn = dists[:, idx2].topk(3, largest=False).indices
+
+                nns = [gen_dataset[gen_idxs[idx2]][0]]
+                for nn in top_nn:
+                    nns.append(train_dataset[train_idxs[nn]][0])
+                return nns
+
+            return underfit_grids, overfit_grids, get_nns()

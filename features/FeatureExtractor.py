@@ -50,7 +50,7 @@ class FeatureExtractor:
             size = len(dataset)
 
         # Add preprocessing transforms to dataset
-        if dataset.transform:
+        if hasattr(dataset, "transform") and dataset.transform:
             dataset.transform = TF.Compose(
                 [dataset.transform, self.preprocess_batch, TF.ToTensor()]
             )
