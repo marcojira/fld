@@ -1,5 +1,4 @@
-# This file contains functions for the data-copying test in addition to
-# each of the baselines demonstrated in the paper
+# Faster implementation of Authenticity metric defined here https://arxiv.org/abs/2102.08921
 
 import torch
 import numpy as np
