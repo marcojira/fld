@@ -46,6 +46,7 @@ def get_pairwise_likelihood(x_data, x_kernel, log_sigmas):
     dists = compute_dists(x_data, x_kernel)
     exponent_term = (-0.5 * dists) / torch.exp(log_sigmas)
     exponent_term -= (x_kernel.shape[1] / 2) * log_sigmas
+    exponent_term += torch.log(torch.tensor(1 / dists.shape[1]))
     return exponent_term
 
 
@@ -255,14 +256,14 @@ class FLS(Metric):
         res = []  # Store the overfitting samples and highest ll train/test samples
         for i, diff_idx in enumerate(top_diffs.indices):
             curr_res = {
-                "overfit_sample": gen_dataset[gen_idxs[diff_idx]],
+                "overfit_sample": gen_dataset[gen_idxs[diff_idx]][0],
                 "ll_diff": top_diffs.values[i].item(),
                 "highest_train": [],
                 "highest_test": [],
             }
 
             # Add 2 highest likelihood train samples to grid as next 3 images
-            top_train_sample_lls = train_lls[:, diff_idx].topk(3, largest=True).indices
+            top_train_sample_lls = train_lls[:, diff_idx].topk(10, largest=True).indices
             for train_idx in top_train_sample_lls:
                 curr_res["highest_train"].append(
                     train_dataset[train_idxs[train_idx]][0]

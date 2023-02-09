@@ -32,4 +32,4 @@ class AuthPct(Metric):
         gen_min_dists = gen_dists.min(dim=0)
 
         authen = real_min_dists.values[gen_min_dists.indices] < gen_min_dists.values
-        return (100 * torch.sum(authen) / len(authen)).item()
+        return (100 * torch.sum(authen) / len(authen)).item() - 50
