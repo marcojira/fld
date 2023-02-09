@@ -44,6 +44,8 @@ class FeatureExtractor:
         """TO BE IMPLEMENTED BY EACH MODULE"""
         pass
 
+    def get_features_generator(self, generator):
+
     def get_features(self, dataset, size=None, get_indices=False):
         """Gets shuffled features from dataset of size `size` or all if size is None"""
         file_path = os.path.join(self.path, f"{dataset.name}.pkl")

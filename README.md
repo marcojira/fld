@@ -4,10 +4,11 @@ Repository for computing **FLS**. Currently, mainly supports evaluating image ge
 ## Setup
 ```bash
 git clone https://github.com/marcojira/fls.git
+cd fls
 pip install -r requirements.txt
 ```
 
-## Usage
+## Quick start
 We provide two ways to compute FLS:
 
 ```bash
