@@ -7,10 +7,10 @@ from fls.features.FeatureExtractor import FeatureExtractor
 
 
 class CLIPFeatureExtractor(FeatureExtractor):
-    def __init__(self, recompute=False, save=True):
+    def __init__(self, recompute=False):
         self.name = "clip"
 
-        super().__init__(recompute=recompute, save=save)
+        super().__init__(recompute=recompute)
 
         self.features_size = 512
         self.preprocess = transforms.Compose(

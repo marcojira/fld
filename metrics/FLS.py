@@ -1,6 +1,5 @@
 import math
 import torch
-import numpy as np
 from fls.metrics.Metric import Metric
 
 

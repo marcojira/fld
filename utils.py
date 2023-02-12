@@ -2,11 +2,12 @@ import argparse
 import torch
 import os
 
-from metrics.AuthPct import AuthPct
-from metrics.FLS import FLS
-from metrics.CTScore import CTScore
-from metrics.FID import FID
-from features.InceptionFeatureExtractor import InceptionFeatureExtractor
+from fls.metrics.AuthPct import AuthPct
+from fls.metrics.FLS import FLS
+from fls.metrics.CTScore import CTScore
+from fls.metrics.FID import FID
+from fls.datasets.SamplesDataset import SamplesDataset
+from fls.features.InceptionFeatureExtractor import InceptionFeatureExtractor
 
 
 def get_metrics(metrics):
@@ -31,13 +32,15 @@ def get_features(arg, save_arg, feature_extractor):
 
     # Check if function
     if callable(arg):
-        return
+        features = feature_extractor.get_features(arg, size=10000, save_path=save_arg)
     # Check if appropriate path
     elif type(arg) is str:
-        if arg.endswith(".pt"):
+        if arg.endswith(".pkl"):
+            print(f"Loading features from {arg}")
             features = torch.load(arg)
         elif os.path.isdir(arg):
-            return
+            dataset = SamplesDataset(arg, path=arg)
+            features = feature_extractor.get_features(dataset, save_path=save_arg)
         else:
             raise ValueError(f"Argument {arg} is not a valid path")
     else:
@@ -51,7 +54,7 @@ def get_features(arg, save_arg, feature_extractor):
     return features
 
 
-def compute_score(
+def compute_metrics(
     train,
     test,
     gen,
@@ -63,41 +66,22 @@ def compute_score(
 ):
     metrics = get_metrics(metrics)
 
+    # Randomly split train into train and baseline
     train_feat = get_features(train, train_save, feature_extractor)
+    perm = torch.randperm(len(train_feat))
+    mid_split = len(train_feat) // 2
+
+    train_feat, baseline_feat = (
+        train_feat[perm[:mid_split]],
+        train_feat[perm[mid_split:]],
+    )
+
     test_feat = get_features(test, test_save, feature_extractor)
     gen_feat = get_features(gen, gen_save, feature_extractor)
 
     metric_vals = {}
     for metric in metrics:
         metric_vals[metric.name] = metric.compute_metric(
-            train_feat, test_feat, gen_feat
+            train_feat, baseline_feat, test_feat, gen_feat
         )
     return metric_vals
-
-
-if __name__ == "__main__":
-    """Construct argument parser"""
-    parser = argparse.ArgumentParser(description="Compute FLS and other metrics.")
-
-    for dataset in ["train", "test", "gen"]:
-        parser.add_argument(
-            dataset,
-            type=str,
-            help=f"Path to folder containing {dataset} data or path to .pt file with pre-computed features",
-            required=True,
-        )
-        parser.add_argument(
-            f"{dataset}_save",
-            type=str,
-            help=f"Destination path to save features obtained from {dataset} data (by default, features are not saved)",
-            default=None,
-        )
-
-    parser.add_argument(
-        "metrics",
-        type=str,
-        nargs="+",
-        help="Path to folder containing test data or path to .pt file with pre-computed features",
-    )
-
-    args = parser.parse_args()

@@ -3,9 +3,9 @@ import torchvision.transforms as TF
 import os
 import shutil
 
-from fls.datasets.DatasetSet import DatasetSet
-from fls.datasets.SamplesDataset import SamplesDataset
-from fls.datasets.ImageNetSampleDataset import ImageNetSampleDataset
+from datasets.DatasetSet import DatasetSet
+from datasets.SamplesDataset import SamplesDataset
+from datasets.ImageNetSampleDataset import ImageNetSampleDataset
 
 
 class ImageNetDatasetSet(DatasetSet):

@@ -1,8 +1,8 @@
-from fls.datasets.DatasetSet import DatasetSet
+from datasets.DatasetSet import DatasetSet
 import torchvision
 import torchvision.transforms as TF
 import os
-from fls.datasets.SamplesDataset import SamplesDataset
+from datasets.SamplesDataset import SamplesDataset
 
 
 class LSUNBedroomDatasetSet(DatasetSet):

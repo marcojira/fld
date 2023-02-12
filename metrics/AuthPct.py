@@ -1,11 +1,6 @@
 # Faster implementation of Authenticity metric defined here https://arxiv.org/abs/2102.08921
 
 import torch
-import numpy as np
-from sklearn.neighbors import NearestNeighbors as NN
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
-
 from fls.metrics.Metric import Metric
 
 

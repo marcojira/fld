@@ -5,14 +5,17 @@ from pathlib import Path
 
 
 class SamplesDataset(Dataset):
-    def __init__(self, name, path=False, extension="png", transform=None):
+    def __init__(self, name, path=False, transform=None):
         self.name = name
         self.path = path
         self.transform = transform
         self.files = []
 
-        for curr_path in Path(path).rglob(f"*.{extension}"):
-            self.files.append(str(curr_path))
+        extensions = ["jpg", "jpeg", "png", "bmp"]
+
+        for extension in extensions:
+            for curr_path in Path(path).rglob(f"*.{extension}"):
+                self.files.append(str(curr_path))
 
     def __len__(self):
         return len(self.files)

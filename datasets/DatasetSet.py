@@ -1,5 +1,5 @@
 import os
-from fls.datasets.SamplesDataset import SamplesDataset
+from datasets.SamplesDataset import SamplesDataset
 
 
 class DatasetSet:

@@ -6,10 +6,10 @@ import torch
 
 
 class InceptionFeatureExtractor(FeatureExtractor):
-    def __init__(self, recompute=False, save=True):
+    def __init__(self, recompute=False):
         self.name = "inception"
 
-        super().__init__(recompute=recompute, save=save)
+        super().__init__(recompute=recompute)
 
         self.features_size = 2048
         self.preprocess = TF.ToTensor()
