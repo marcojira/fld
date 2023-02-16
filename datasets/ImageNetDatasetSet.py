@@ -20,45 +20,8 @@ class ImageNetDatasetSet(DatasetSet):
             self.train_dataset = ImageNetSampleDataset("imagenet_train", "train")
             self.test_dataset = ImageNetSampleDataset("imagenet_val", "val")
 
-        """ Add non studiogan datasets """
-        base_path = "/home/mila/m/marco.jiralerspong/scratch/ills/samples"
-        main_path_models = ["guided_diffusion"]
-
-        for model_name in main_path_models:
-            self.sample_datasets.append(
-                SamplesDataset(
-                    f"imagenet_{model_name}",
-                    os.path.join(base_path, model_name, "imagenet256"),
-                    transform=TF.Resize(
-                        (128, 128), interpolation=TF.InterpolationMode.BILINEAR
-                    ),
-                )
-            )
-
-        self.sample_datasets.append(
-            SamplesDataset(
-                f"imagenet_styleganxl",
-                "/home/mila/m/marco.jiralerspong/scratch/truncations_styleganxl/unconditional/0.70",
-            )
-        )
-
-        """ Add studiogan datasets """
-        SAVE_PATH = "/home/mila/m/marco.jiralerspong/scratch/ills/sample_generation/studiogan/ImageNet_tailored/samples"
-        studiogan_models = [
-            "BigGAN-256",
-            "ContraGAN-256",
-            "ReACGAN-256",
-            "SAGAN-256",
-            "SNGAN-256",
-            "StyleGAN2-SPD",
-            "StyleGAN3-t-SPD",
-        ]
-        self.get_studiogan_datasets(studiogan_models, SAVE_PATH, "imagenet128")
-
-        self.create_dataset_dict()
-
     def load_dataset(self, slurm_tmpdir):
-        base_path = "/network/datasets/imagenet/"
+        base_path = ""
 
         file_names = [
             "ILSVRC2012_img_val.tar",

@@ -13,9 +13,7 @@ class ImageNetSampleDataset(Dataset):
         self.name = name
         self.transform = None
 
-        self.path = os.path.join(
-            "/home/mila/m/marco.jiralerspong/scratch/sample_imagenet", split
-        )
+        self.path = os.path.join("", split)
         self.files = os.listdir(self.path)
         self.files = {
             int(file.split(".")[0]): file for file in self.files if ".png" in file
