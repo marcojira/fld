@@ -12,10 +12,8 @@ class AuthPct(Metric):
     def compute_metric(
         self,
         train_feat,
-        baseline_feat,
-        test_feat,
+        test_feat, # Test samples not used by AuthPct
         gen_feat,
-        plot=False,
     ):
         real_dists = torch.cdist(train_feat, train_feat)
 

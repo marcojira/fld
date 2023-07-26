@@ -7,10 +7,8 @@ class Metric:
     def compute_metric(
         self,
         train_feat,
-        baseline_feat,
         test_feat,
         gen_feat,
-        plot=False,
     ):
         """Computes the metric value for the given sets of features (TO BE IMPLEMENTED BY EACH METRIC)
 

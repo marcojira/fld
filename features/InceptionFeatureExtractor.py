@@ -1,9 +1,9 @@
-from fls.features.FeatureExtractor import FeatureExtractor
-
 from pytorch_fid.inception import InceptionV3
+
 import torchvision.transforms as TF
 import torch
 
+from fls.features.FeatureExtractor import FeatureExtractor
 
 class InceptionFeatureExtractor(FeatureExtractor):
     def __init__(self, recompute=False):

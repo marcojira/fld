@@ -71,19 +71,34 @@ def get_activation_statistics(act):
 
 
 class FID(Metric):
-    def __init__(self):
+    def __init__(self, reference_feat="train", ref_size=50000):
         super().__init__()
-        self.name = "FID"
+        self.name = f"{reference_feat.title()} FID - {ref_size//1000}k"
+        self.reference_feat = reference_feat
+        self.ref_size = ref_size
 
     def compute_metric(
         self,
         train_feat,
-        baseline_feat,
         test_feat,
         gen_feat,
-        plot=False,
     ):
         mu1, sigma1 = get_activation_statistics(gen_feat.cpu().numpy())
-        mu2, sigma2 = get_activation_statistics(test_feat.cpu().numpy())
+
+        if self.reference_feat == "train":
+            ref_feat = train_feat
+        elif self.reference_feat == "test":
+            ref_feat = test_feat
+        else:
+            raise ValueError(
+                "reference_feat must be one of 'train' or 'test'"
+            )
+
+        if ref_feat.shape[0] > self.ref_size:
+            ref_feat = ref_feat[
+                np.random.choice(ref_feat.shape[0], self.ref_size, replace=False)
+            ]
+
+        mu2, sigma2 = get_activation_statistics(ref_feat.cpu().numpy())
 
         return calculate_frechet_distance(mu1, sigma1, mu2, sigma2)

@@ -164,10 +164,8 @@ class CTScore(Metric):
     def compute_metric(
         self,
         train_feat,
-        baseline_feat,
         test_feat,
         gen_feat,
-        plot=False,
     ):
         if train_feat.shape[1] > 64:
             pca_xf = PCA(n_components=64).fit(train_feat)
