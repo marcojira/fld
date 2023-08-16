@@ -7,10 +7,9 @@ class DINOv2FeatureExtractor(FeatureExtractor):
     def __init__(
         self,
         recompute=False,
-        save=True,
     ):
         self.name = f"dinov2"
-        super().__init__(recompute=recompute, save=save)
+        super().__init__(recompute=recompute)
 
         self.features_size = 768
         # From https://github.com/facebookresearch/dinov2/blob/main/dinov2/data/transforms.py#L44

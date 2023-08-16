@@ -6,3 +6,5 @@ torchvision
 scikit-learn
 scipy
 pytorch-fid
+seaborn
+PyYAML

@@ -5,6 +5,7 @@ import torch
 
 from fls.features.FeatureExtractor import FeatureExtractor
 
+
 class InceptionFeatureExtractor(FeatureExtractor):
     def __init__(self, recompute=False):
         self.name = "inception"

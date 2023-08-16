@@ -3,8 +3,10 @@ import torch
 import os
 from tqdm import tqdm
 import numpy as np
+import yaml
 
 CHUNK_SIZE = 100000
+
 
 class TransformedDataset(torch.utils.data.Dataset):
     """Wrapper class for dataset to add transform when there is none"""
@@ -22,8 +24,13 @@ class TransformedDataset(torch.utils.data.Dataset):
         return len(self.dataset)
 
 
+config_file = os.path.join(os.path.dirname(__file__), "..", "config.yaml")
+with open(config_file, "r") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+
+
 class FeatureExtractor:
-    def __init__(self, recompute=False, save_path=False):
+    def __init__(self, recompute=False, save_path=config["feature_save_path"]):
         self.recompute = recompute
         self.save_path = os.path.join(save_path, self.name) if save_path else False
         os.makedirs(self.save_path, exist_ok=True)
@@ -38,7 +45,7 @@ class FeatureExtractor:
         pass
 
     def get_all_features(self, dataset):
-        """ Returns combined features for all chunks """
+        """Returns combined features for all chunks"""
         features = []
         for _, feature in self.get_features(dataset):
             features.append(feature)
@@ -46,15 +53,15 @@ class FeatureExtractor:
         return torch.cat(features)
 
     def get_features(self, dataset):
-        """ 
-        Generator over features of dataset, split into chunks of CHUNK_SIZE 
+        """
+        Generator over features of dataset, split into chunks of CHUNK_SIZE
         Yields chunk (full dataset indices of the features), features (features of that chunk)
         """
         num_imgs = len(dataset)
         num_chunks = num_imgs // CHUNK_SIZE + 1
 
         for chunk_idx in range(num_chunks):
-            dir_path = os.path.join(self.path, f"{dataset.name}")
+            dir_path = os.path.join(self.save_path, f"{dataset.name}")
             os.makedirs(dir_path, exist_ok=True)
             file_path = os.path.join(dir_path, f"{chunk_idx}.pkl")
             begin, end = chunk_idx * CHUNK_SIZE, min(
@@ -76,7 +83,7 @@ class FeatureExtractor:
             yield chunk, features
 
     def compute_features(self, dataset):
-        """ Compute features of dataset by looping over dataset """
+        """Compute features of dataset by looping over dataset"""
         dataset = TransformedDataset(dataset, self.preprocess_batch)
 
         size = len(dataset)
@@ -109,3 +116,7 @@ class FeatureExtractor:
             features = pickle.load(f)
 
         return features
+
+    def shuffle_features(self, features, size):
+        random_sample = np.random.choice(len(features), size=size, replace=False)
+        return random_sample, features[random_sample]

@@ -71,10 +71,10 @@ def get_activation_statistics(act):
 
 
 class FID(Metric):
-    def __init__(self, reference_feat="train", ref_size=50000):
+    def __init__(self, mode="train", ref_size=50000):
         super().__init__()
-        self.name = f"{reference_feat.title()} FID - {ref_size//1000}k"
-        self.reference_feat = reference_feat
+        self.name = f"{mode.title()} FID - {ref_size//1000}k"
+        self.mode = mode
         self.ref_size = ref_size
 
     def compute_metric(
@@ -85,20 +85,30 @@ class FID(Metric):
     ):
         mu1, sigma1 = get_activation_statistics(gen_feat.cpu().numpy())
 
-        if self.reference_feat == "train":
-            ref_feat = train_feat
-        elif self.reference_feat == "test":
-            ref_feat = test_feat
+        def sample_ref_feat(feat):
+            if feat.shape[0] > self.ref_size:
+                return feat[
+                    np.random.choice(feat.shape[0], self.ref_size, replace=False)
+                ]
+            return feat
+
+        if self.mode == "train":
+            ref_feat = sample_ref_feat(train_feat)
+            mu2, sigma2 = get_activation_statistics(ref_feat.cpu().numpy())
+            return calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
+        elif self.mode == "test":
+            ref_feat = sample_ref_feat(test_feat)
+            mu2, sigma2 = get_activation_statistics(ref_feat.cpu().numpy())
+            return calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
+        elif self.mode == "train - test":
+            train_feat = sample_ref_feat(train_feat)
+            mu2, sigma2 = get_activation_statistics(train_feat.cpu().numpy())
+            train_fid = calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
+
+            test_feat = sample_ref_feat(test_feat)
+            mu2, sigma2 = get_activation_statistics(test_feat.cpu().numpy())
+            test_fid = calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
+
+            return train_fid - test_fid
         else:
-            raise ValueError(
-                "reference_feat must be one of 'train' or 'test'"
-            )
-
-        if ref_feat.shape[0] > self.ref_size:
-            ref_feat = ref_feat[
-                np.random.choice(ref_feat.shape[0], self.ref_size, replace=False)
-            ]
-
-        mu2, sigma2 = get_activation_statistics(ref_feat.cpu().numpy())
-
-        return calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
+            raise ValueError("reference_feat must be one of 'train' or 'test'")
