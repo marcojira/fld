@@ -39,13 +39,15 @@ def compute_dists(x_data, x_kernel):
 
 class MoG:
     def __init__(self, mus, log_sigmas=None, lr=0.5, num_steps=75):
-        self.mus = mus
+        reg_point = torch.zeros((1, mus.shape[1])).cuda()
+
+        self.mus = torch.cat([reg_point, mus], dim=0)
         self.n_gaussians = mus.shape[0]
         self.dim = mus.shape[1]
 
         if log_sigmas is None:
             self.log_sigmas = torch.zeros(
-                self.n_gaussians, requires_grad=True, device="cuda"
+                self.n_gaussians + 1, requires_grad=True, device="cuda"
             )
         else:
             self.log_sigmas = log_sigmas
@@ -54,7 +56,7 @@ class MoG:
         self.lr = lr
         self.num_steps = num_steps
 
-    def ll(self, dists, fit=False):
+    def ll(self, dists, fit=False, lambd=0.5):
         """Computes the MoG LL using the matrix of distances"""
         exponent_term = (-0.5 * dists) / (torch.exp(self.log_sigmas))
 
@@ -64,7 +66,22 @@ class MoG:
         exponent_term -= (self.dim / 2) * np.log(2 * np.pi)
         exponent_term -= np.log(self.n_gaussians)
 
-        inner_term = torch.logsumexp(exponent_term, dim=1)
+        if fit:
+            exponent_term[:, 1:] += np.log(1 - lambd)
+            exponent_term[:, 0] += np.log(self.n_gaussians)
+            exponent_term[:, 0] += np.log(lambd)
+            # exponent_term[:, 0] = -2500
+            # print(exponent_term[:, 0])
+            # print(self.log_sigmas[0])
+            inner_term = torch.logsumexp(exponent_term, dim=1)
+        else:
+            inner_term = torch.logsumexp(exponent_term[:, 1:], dim=1)
+            print(inner_term.shape)
+            sns.kdeplot(inner_term.detach().cpu().numpy())
+            plt.show()
+            sns.kdeplot(torch.logsumexp(exponent_term, dim=1).detach().cpu().numpy())
+            plt.show()
+
         return inner_term
 
     def get_pairwise_ll(self, x):
@@ -96,11 +113,16 @@ class MoG:
             losses.append(loss.item())
 
         self.log_sigmas = self.log_sigmas.detach()
+        sns.kdeplot(self.log_sigmas.cpu().numpy())
+        plt.show()
         return self.log_sigmas, losses
 
     def evaluate(self, x):
         """Evaluate LL of x under MoG"""
         dists = compute_dists(x, self.mus)
+        self.log_sigmas[1:] = torch.full(
+            (self.n_gaussians,), -20.0, requires_grad=True, device="cuda"
+        )
         return self.ll(dists)
 
 
