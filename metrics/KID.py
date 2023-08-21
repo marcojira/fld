@@ -1,17 +1,15 @@
-# Taken from https://github.com/toshas/torch-fidelity/blob/master/torch_fidelity/metric_kid.py
+# From https://github.com/toshas/torch-fidelity/blob/master/torch_fidelity/metric_kid.py
 import numpy as np
 import torch
-from scipy import linalg
 from fls.metrics.Metric import Metric
 from tqdm import tqdm
 
 
-KEY_METRIC_KID_MEAN = 'kernel_inception_distance_mean'
-KEY_METRIC_KID_STD = 'kernel_inception_distance_std'
+KEY_METRIC_KID_MEAN = "kernel_inception_distance_mean"
+KEY_METRIC_KID_STD = "kernel_inception_distance_std"
 
 
-def mmd2(K_XX, K_XY, K_YY, unit_diagonal=False, mmd_est='unbiased'):
-
+def mmd2(K_XX, K_XY, K_YY, unit_diagonal=False, mmd_est="unbiased"):
     m = K_XX.shape[0]
     assert K_XX.shape == (m, m)
     assert K_XY.shape == (m, m)
@@ -37,16 +35,18 @@ def mmd2(K_XX, K_XY, K_YY, unit_diagonal=False, mmd_est='unbiased'):
     Kt_YY_sum = Kt_YY_sums.sum()
     K_XY_sum = K_XY_sums_0.sum()
 
-    if mmd_est == 'biased':
-        mmd2 = ((Kt_XX_sum + sum_diag_X) / (m * m)
-              + (Kt_YY_sum + sum_diag_Y) / (m * m)
-              - 2 * K_XY_sum / (m * m))
+    if mmd_est == "biased":
+        mmd2 = (
+            (Kt_XX_sum + sum_diag_X) / (m * m)
+            + (Kt_YY_sum + sum_diag_Y) / (m * m)
+            - 2 * K_XY_sum / (m * m)
+        )
     else:
-        mmd2 = (Kt_XX_sum + Kt_YY_sum) / (m * (m-1))
-        if mmd_est == 'unbiased':
+        mmd2 = (Kt_XX_sum + Kt_YY_sum) / (m * (m - 1))
+        if mmd_est == "unbiased":
             mmd2 -= 2 * K_XY_sum / (m * m)
         else:
-            mmd2 -= 2 * (K_XY_sum - np.trace(K_XY)) / (m * (m-1))
+            mmd2 -= 2 * (K_XY_sum - np.trace(K_XY)) / (m * (m - 1))
 
     return mmd2
 
@@ -59,9 +59,15 @@ def polynomial_kernel(X, Y, degree=3, gamma=None, coef0=1):
 
 
 def polynomial_mmd(features_1, features_2, degree, gamma, coef0):
-    k_11 = polynomial_kernel(features_1, features_1, degree=degree, gamma=gamma, coef0=coef0)
-    k_22 = polynomial_kernel(features_2, features_2, degree=degree, gamma=gamma, coef0=coef0)
-    k_12 = polynomial_kernel(features_1, features_2, degree=degree, gamma=gamma, coef0=coef0)
+    k_11 = polynomial_kernel(
+        features_1, features_1, degree=degree, gamma=gamma, coef0=coef0
+    )
+    k_22 = polynomial_kernel(
+        features_2, features_2, degree=degree, gamma=gamma, coef0=coef0
+    )
+    k_12 = polynomial_kernel(
+        features_1, features_2, degree=degree, gamma=gamma, coef0=coef0
+    )
     return mmd2(k_11, k_12, k_22)
 
 
@@ -71,7 +77,7 @@ def kid_features_to_metric(features_1, features_2, **kwargs):
     assert features_1.shape[1] == features_2.shape[1]
 
     kid_subsets = 100
-    kid_subset_size = min(1000, features_1.shape[0]//2, features_2.shape[0]//2)
+    kid_subset_size = min(1000, features_1.shape[0] // 2, features_2.shape[0] // 2)
     verbose = False
 
     n_samples_1, n_samples_2 = len(features_1), len(features_2)
@@ -83,8 +89,11 @@ def kid_features_to_metric(features_1, features_2, **kwargs):
     rng = np.random.RandomState(42)
 
     for i in tqdm(
-            range(kid_subsets), disable=not verbose, leave=False, unit='subsets',
-            desc='Kernel Inception Distance'
+        range(kid_subsets),
+        disable=not verbose,
+        leave=False,
+        unit="subsets",
+        desc="Kernel Inception Distance",
     ):
         f1 = features_1[rng.choice(n_samples_1, kid_subset_size, replace=False)]
         f2 = features_2[rng.choice(n_samples_2, kid_subset_size, replace=False)]
@@ -130,9 +139,7 @@ class KID(Metric):
         if self.mode == "test":
             ref_feat = sample_ref_feat(test_feat).cpu()
         else:
-            raise ValueError(
-                "reference_feat must be one of 'train' or 'test'"
-            )
-        
+            raise ValueError("reference_feat must be one of 'train' or 'test'")
+
         vals = kid_features_to_metric(gen_feat.cpu(), ref_feat)
         return vals

@@ -1,12 +1,10 @@
 from torch.utils.data import Dataset
-import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
-from pathlib import Path
 
 
 class NPYDataset(Dataset):
-    """ Creates torch Dataset from a .npy of images and a .npy labels """
+    """Creates torch Dataset from a .npy of images and a .npy labels"""
 
     def __init__(self, name, img_npy_path, label_npy_path, transform=None):
         self.name = name

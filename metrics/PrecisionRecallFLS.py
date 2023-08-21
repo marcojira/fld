@@ -4,6 +4,8 @@ from fls.metrics.Metric import Metric
 
 
 class PrecisionRecallFLS(Metric):
+    """Modified version of Precision/Recall using distances chosen through a similar process as FLS"""
+
     # We use 4 to ignore distance to self
     def __init__(self, mode, num_neighbors=4):
         super().__init__()
