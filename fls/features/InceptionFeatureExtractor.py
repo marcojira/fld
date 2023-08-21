@@ -7,10 +7,10 @@ from fls.features.FeatureExtractor import FeatureExtractor
 
 
 class InceptionFeatureExtractor(FeatureExtractor):
-    def __init__(self, recompute=False):
+    def __init__(self, recompute=False, save_path=None):
         self.name = "inception"
 
-        super().__init__(recompute=recompute)
+        super().__init__(recompute=recompute, save_path=save_path)
 
         self.features_size = 2048
         self.preprocess = TF.ToTensor()

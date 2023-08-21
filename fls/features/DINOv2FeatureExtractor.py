@@ -4,12 +4,9 @@ from fls.features.FeatureExtractor import FeatureExtractor
 
 
 class DINOv2FeatureExtractor(FeatureExtractor):
-    def __init__(
-        self,
-        recompute=False,
-    ):
+    def __init__(self, recompute=False, save_path=None):
         self.name = f"dinov2"
-        super().__init__(recompute=recompute)
+        super().__init__(recompute=recompute, save_path=save_path)
 
         self.features_size = 768
         # From https://github.com/facebookresearch/dinov2/blob/main/dinov2/data/transforms.py#L44

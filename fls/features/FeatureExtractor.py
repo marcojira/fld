@@ -1,11 +1,24 @@
 import pickle
 import torch
 import os
+import math
 from tqdm import tqdm
 import numpy as np
 import yaml
 
 CHUNK_SIZE = 100000
+
+
+def to_img(img_array):
+    """From tensor in [-1, 1] of shape [B, C, W, H] to numpy int images"""
+    return (
+        (img_array * 127.5 + 128)
+        .clip(0, 255)
+        .to(torch.uint8)
+        .permute(0, 2, 3, 1)
+        .cpu()
+        .numpy()
+    )
 
 
 class TransformedDataset(torch.utils.data.Dataset):
@@ -24,15 +37,20 @@ class TransformedDataset(torch.utils.data.Dataset):
         return len(self.dataset)
 
 
-config_file = os.path.join(os.path.dirname(__file__), "..", "config.yaml")
-with open(config_file, "r") as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
-
-
 class FeatureExtractor:
-    def __init__(self, recompute=False, save_path=config["feature_save_path"]):
+    def __init__(self, recompute=False, save_path="config"):
         self.recompute = recompute
-        self.save_path = os.path.join(save_path, self.name) if save_path else False
+
+        if save_path == "config":
+            config_file = os.path.join(os.path.dirname(__file__), "..", "config.yaml")
+            with open(config_file, "r") as f:
+                config = yaml.load(f, Loader=yaml.FullLoader)
+            self.save_path = os.path.join(config["feature_save_path"], self.name)
+        elif save_path is not None:
+            self.save_path = os.path.join(save_path, self.name)
+        else:
+            self.save_path = False
+
         os.makedirs(self.save_path, exist_ok=True)
         self.features_size = None  # TO BE IMPLEMENTED BY EACH MODULE
 
@@ -43,6 +61,26 @@ class FeatureExtractor:
     def get_feature_batch(self, img_batch):
         """TO BE IMPLEMENTED BY EACH MODULE"""
         pass
+
+    def get_gen_features(self, f, size=10000):
+        img_array = f()
+        batch_size = img_array.shape[0]
+        num_batches = math.ceil(size / batch_size)
+
+        features = torch.zeros(num_batches * batch_size, self.features_size)
+
+        for i in tqdm(range(num_batches)):
+            img_array = to_img(f())
+            img_batch = torch.stack(
+                [self.preprocess_batch(img_array[i]) for i in range(batch_size)]
+            )
+            # imgs = self.preprocess_batch(img_array[0])
+
+            curr_features = self.get_feature_batch(img_batch.cuda())
+
+            features[i * batch_size : (i + 1) * batch_size] = curr_features
+
+        return features[:size]
 
     def get_all_features(self, dataset):
         """Returns combined features for all chunks"""
