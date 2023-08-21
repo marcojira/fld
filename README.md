@@ -5,11 +5,14 @@ Repository for computing FLS. Currently, mainly supports evaluating image genera
 ```bash
 git clone https://github.com/marcojira/fls.git
 # From venv
-pip install -r fls/requirements.txt
+cd fls
+pip install . 
 pip install git+https://github.com/openai/CLIP.git
 ```
 
 ## Quick start
+Look at `example.ipynb` to see how to get the FLS of a generative model.
+<!-- 
 We provide two ways to compute FLS:
 
 ```bash
@@ -117,4 +120,4 @@ fls.compute_metrics("path/to/train", "path/to/test", gen_samples, feature_extrac
 ```
 
 ### Adding a new feature space
-To create your own FeatureExtractor, create a class that inherits from `features/FeatureExtractor.py`.
+To create your own FeatureExtractor, create a class that inherits from `features/FeatureExtractor.py`. -->
