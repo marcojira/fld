@@ -6,6 +6,9 @@ from tqdm import tqdm
 import numpy as np
 import yaml
 
+import torchvision
+from PIL import Image
+
 CHUNK_SIZE = 100000
 
 
@@ -24,12 +27,17 @@ def to_img(img_array):
 class TransformedDataset(torch.utils.data.Dataset):
     """Wrapper class for dataset to add transform when there is none"""
 
-    def __init__(self, dataset, transform):
+    def __init__(self, dataset, transform, to_pil=False):
         self.dataset = dataset
         self.transform = transform
 
+        self.to_pil = to_pil
+        self.pil_transform = torchvision.transforms.ToPILImage()
+
     def __getitem__(self, idx):
         img, labels = self.dataset[idx]
+        if self.to_pil:
+            img = self.pil_transform(img)
         img = self.transform(img)
         return img, labels
 
@@ -72,10 +80,11 @@ class FeatureExtractor:
         for i in tqdm(range(num_batches)):
             img_array = to_img(f())
             img_batch = torch.stack(
-                [self.preprocess_batch(img_array[i]) for i in range(batch_size)]
+                [
+                    self.preprocess_batch(Image.fromarray(img_array[i]))
+                    for i in range(batch_size)
+                ]
             )
-            # imgs = self.preprocess_batch(img_array[0])
-
             curr_features = self.get_feature_batch(img_batch.cuda())
 
             features[i * batch_size : (i + 1) * batch_size] = curr_features
@@ -122,7 +131,12 @@ class FeatureExtractor:
 
     def compute_features(self, dataset):
         """Compute features of dataset by looping over dataset"""
-        dataset = TransformedDataset(dataset, self.preprocess_batch)
+
+        # Deal with datasets that return tensors
+        if torch.is_tensor(dataset[0][0]):
+            dataset = TransformedDataset(dataset, self.preprocess_batch, to_pil=True)
+        else:
+            dataset = TransformedDataset(dataset, self.preprocess_batch, to_pil=False)
 
         size = len(dataset)
         features = torch.zeros(size, self.features_size)
