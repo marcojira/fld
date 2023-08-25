@@ -136,7 +136,7 @@ class KID(Metric):
 
         if self.mode == "train":
             ref_feat = sample_ref_feat(train_feat).cpu()
-        if self.mode == "test":
+        elif self.mode == "test":
             ref_feat = sample_ref_feat(test_feat).cpu()
         else:
             raise ValueError("reference_feat must be one of 'train' or 'test'")
