@@ -70,15 +70,55 @@ class FeatureExtractor:
         """TO BE IMPLEMENTED BY EACH MODULE"""
         pass
 
+    def get_curr_features (self, img_array, idx_beg, idx_end, batchsize):
+        img_sub_array = to_img(img_array[idx_beg:idx_end])
+        img_batch = torch.stack(
+            [
+                self.preprocess_batch(Image.fromarray(img_sub_array[i]))
+                for i in range(len(img_sub_array))
+            ]
+        )
+        curr_features = self.get_feature_batch(img_batch.cuda())
+        return curr_features
+
+    def get_gen_features_from_tensor(self, img_array, batchsize):
+
+        n_gen_samples = img_array.shape[0]
+        num_batches = n_gen_samples // batchsize
+        features = torch.zeros(n_gen_samples, self.features_size)
+
+        for i in tqdm(range(num_batches), desc='Features extraction loop'):
+            idx_beg = batchsize * i
+            idx_end = batchsize * (i+1)
+            features[idx_beg:idx_end] = self.get_curr_features(
+                img_array, idx_beg, idx_end, batchsize)
+
+        idx_beg = batchsize * num_batches
+        idx_end = -1
+        features[idx_beg:idx_end] = self.get_curr_features(
+            img_array, idx_beg, idx_end, batchsize)
+
+        return features
+
     def get_gen_features(self, f, size=10000):
-        img_array = f()
-        batch_size = img_array.shape[0]
+        try:
+            img_array = f()
+            batch_size = img_array.shape[0]
+        except:
+            all_img_array = f
+            batch_size = all_img_array.shape[0]
+            # all_img_array = to_img(f)
+
         num_batches = math.ceil(size / batch_size)
 
         features = torch.zeros(num_batches * batch_size, self.features_size)
 
         for i in tqdm(range(num_batches)):
-            img_array = to_img(f())
+            try:
+                img_array = to_img(f())
+            except:
+                img_array = to_img(all_img_array[i * batch_size:(i+1)*batch_size, :])
+                # import ipdb; ipdb.set_trace()
             img_batch = torch.stack(
                 [
                     self.preprocess_batch(Image.fromarray(img_array[i]))
