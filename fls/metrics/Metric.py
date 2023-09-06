@@ -18,14 +18,3 @@ class Metric:
         returns: Metric value
         """
         pass
-
-    def create_metric_dict(
-        self, train_feat, baseline_feat, test_feat, gen_feat_dict, plot=False
-    ):
-        """Returns a dictionary of gen_name -> metric value for each set of generated features in gen_feat_dict"""
-        return {
-            gen_name: self.compute_metric(
-                train_feat, baseline_feat, test_feat, gen_feat, plot=plot
-            )
-            for gen_name, gen_feat in gen_feat_dict.items()
-        }

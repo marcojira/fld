@@ -105,10 +105,14 @@ class MoG:
 
 
 class FLS(Metric):
-    def __init__(self, mode="", baseline_LL=0):
+    def __init__(self, mode="test", baseline_LL=0):
         super().__init__()
-        self.mode = mode  # One of ("", "train", "% overfit samples")
-        self.name = f"{mode} FLS"
+        self.mode = mode  # One of ("", "train")
+        if mode == "test":
+            self.name = "FLS"
+        else:
+            self.name = f"{mode.title()} FID"
+
         self.baseline_LL = (
             baseline_LL  # Obtained by getting the FLS of a subset of the train set
         )
@@ -142,92 +146,6 @@ class FLS(Metric):
             gen_ll = mog_gen.evaluate(train_feat).mean()
 
             return self.get_adjusted_nll(gen_ll, dim)
-
-        # Difference between the above two
-        elif self.mode == "train_vs_test":
-            mog_gen = MoG(gen_feat)
-            mog_gen.fit(train_feat)
-
-            train_ll = mog_gen.evaluate(train_feat).mean()
-            test_ll = mog_gen.evaluate(test_feat).mean()
-
-            return self.get_adjusted_nll(train_ll, dim) - self.get_adjusted_nll(
-                test_ll, dim
-            )
-
-        # Percent of samples closer to nearest test than nearest train
-        elif self.mode == "AuthPctTest":
-            train_dists = compute_dists(gen_feat, train_feat)
-            min_train_dists = train_dists.min(dim=1).values
-
-            test_dists = compute_dists(gen_feat, test_feat)
-            min_test_dists = test_dists.min(dim=1).values
-
-            pct_closer = (
-                100
-                * (min_test_dists < min_train_dists).sum().item()
-                / gen_feat.shape[0]
-            )
-            return pct_closer - 50
-
-        # Percent of samples closer to nearest test than nearest train (adjusted for dataset size)
-        elif self.mode == "AuthPctAdjusted":
-            train_dists = compute_dists(gen_feat, train_feat)
-            min_train_dists = train_dists.min(dim=1).values
-            min_train_dists = min_train_dists * np.sqrt(2 * np.log(train_feat.shape[0]))
-
-            test_dists = compute_dists(gen_feat, test_feat)
-            min_test_dists = test_dists.min(dim=1).values
-            min_test_dists = min_test_dists * np.sqrt(2 * np.log(test_feat.shape[0]))
-
-            pct_closer = (
-                100
-                * (min_test_dists < min_train_dists).sum().item()
-                / gen_feat.shape[0]
-            )
-            return pct_closer - 50
-
-        # Percent of samples that have lower sigma when fit to train than test
-        elif self.mode == "Pct lower sigma":
-            mog_gen = MoG(gen_feat)
-            train_log_sigmas, _ = mog_gen.fit(train_feat)
-
-            mog_gen = MoG(gen_feat)
-            test_log_sigmas, _ = mog_gen.fit(test_feat)
-
-            pct_smaller = (
-                100
-                * (train_log_sigmas > test_log_sigmas).sum().item()
-                / gen_feat.shape[0]
-            )
-            return pct_smaller - 50
-
-        elif self.mode == "POG NN":
-            mog_gen = MoG(gen_feat)
-            mog_gen.fit(train_feat)
-
-            train_lls = mog_gen.get_pairwise_ll(train_feat)
-            nn_train_lls = train_lls.min(dim=0).values
-
-            test_lls = mog_gen.get_pairwise_ll(test_feat)
-            nn_test_lls = train_lls.min(dim=0).values
-
-            pct_smaller = (
-                100 * (nn_train_lls < nn_test_lls).sum().item() / gen_feat.shape[0]
-            )
-            return pct_smaller - 50
-
-        # Percentage of Gaussians that assign higher LL to test than train (-50)
-        elif self.mode == "POG":
-            mog_gen = MoG(gen_feat)
-            mog_gen.fit(train_feat)
-            train_lls = mog_gen.get_pairwise_ll(train_feat)
-            test_lls = mog_gen.get_pairwise_ll(test_feat)
-
-            ll_diff = train_lls.mean(axis=0) - test_lls.mean(axis=0)
-            score = ((ll_diff < 0).sum().item() / ll_diff.shape[0]) * 100
-            return score - 50
-
         else:
             raise Exception(f"Invalid mode for FLS metric: {self.mode}")
 
@@ -238,7 +156,7 @@ class FLS(Metric):
         dists = compute_dists(gen_feat[idxs], train_feat)
         return dists.topk(k, largest=False).indices
 
-    def get_overfit_samples(self, train_feat, test_feat, gen_feat, percentiles, mode):
+    def get_overfit_samples(self, train_feat, test_feat, gen_feat, percentiles):
         """
         After sorting generated samples by O_n, return idxs of those at `percentiles`
         e.g. percentiles = [99] will return the idx of the sample with higher O_n than 99% of other generated samples and be deemed highly overfit
@@ -249,144 +167,20 @@ class FLS(Metric):
             train_feat, test_feat, gen_feat
         )
 
-        def ll_diff():
-            # Fit MoG
-            mog_gen = MoG(gen_feat)
-            log_sigmas, _ = mog_gen.fit(train_feat)
+        # Fit MoG
+        mog_gen = MoG(gen_feat)
+        log_sigmas_train, _ = mog_gen.fit(train_feat)
 
-            # Get highest LL differences
-            train_lls = mog_gen.get_pairwise_ll(train_feat)
-            test_lls = mog_gen.get_pairwise_ll(test_feat)
+        train_lls = mog_gen.get_pairwise_ll(train_feat).max(dim=0).values
 
-            ll_diff = train_lls.mean(axis=0) - test_lls.mean(axis=0)
-            ll_diff, idxs = ll_diff.sort(descending=False)
-            return idxs
-
-        def nn_dist_diff():
-            train_dists = torch.cdist(gen_feat, train_feat) ** 2
-            min_train_idxs, min_train_dists = (
-                train_dists.min(dim=1).indices,
-                train_dists.min(dim=1).values,
-            )
-            test_dists = torch.cdist(gen_feat, test_feat) ** 2
-            min_test_dists = test_dists.min(dim=1).values
-
-            diff = min_train_dists / min_test_dists
-            sorted_diff = diff.sort(descending=True)
-            sns.kdeplot(diff.cpu().numpy())
-            return sorted_diff.indices, sorted_diff.values
-
-        def nn_dist():
-            train_dists = torch.cdist(gen_feat, train_feat) ** 2
-            min_train_idxs, min_train_dists = (
-                train_dists.min(dim=1).indices,
-                train_dists.min(dim=1).values,
-            )
-
-            sorted_dists = min_train_dists.sort(descending=True)
-            sns.kdeplot(min_train_dists.cpu().numpy())
-            return sorted_dists.indices, sorted_dists.values
-
-        def nn_dist_diff_adjusted():
-            train_dists = torch.cdist(gen_feat, train_feat) ** 2
-            min_train_idxs, min_train_dists = (
-                train_dists.min(dim=1).indices,
-                train_dists.min(dim=1).values,
-            )
-            min_train_dists = min_train_dists * np.sqrt(2 * np.log(train_feat.shape[0]))
-
-            test_dists = torch.cdist(gen_feat, test_feat) ** 2
-            min_test_dists = test_dists.min(dim=1).values
-            min_test_dists = min_test_dists * np.sqrt(2 * np.log(test_feat.shape[0]))
-
-            diff = min_train_dists - min_test_dists
-            sorted_diff = diff.sort(descending=True)
-            sns.kdeplot(diff.cpu().numpy())
-            return sorted_diff.indices, sorted_diff.values
-
-        if mode == "nn_dist_diff":
-            idxs, values = nn_dist_diff()
-        elif mode == "nn_dist":
-            idxs, values = nn_dist()
-        elif mode == "nn_dist_diff_adjusted":
-            idxs, values = nn_dist_diff_adjusted()
-
-        elif mode == "min_sigma":
-            # Fit MoG
-            mog_gen = MoG(gen_feat)
-            log_sigmas, _ = mog_gen.fit(train_feat)
-
-            idxs, values = (
-                log_sigmas.sort(descending=True).indices,
-                log_sigmas.sort(descending=True).values,
-            )
-
-        elif mode == "min_sigma_train-min_sigma_test":
-            # Fit MoG
-            mog_gen = MoG(gen_feat)
-            log_sigmas_train, _ = mog_gen.fit(train_feat)
-
-            mog_gen = MoG(gen_feat)
-            log_sigmas_test, _ = mog_gen.fit(test_feat)
-
-            diff = log_sigmas_train.exp() / log_sigmas_test.exp()
-            idxs, values = (
-                diff.sort(descending=True).indices,
-                diff.sort(descending=True).values,
-            )
-
-        elif mode == "highest_ll":
-            # Fit MoG
-            mog_gen = MoG(gen_feat)
-            log_sigmas_train, _ = mog_gen.fit(train_feat)
-
-            train_lls = mog_gen.get_pairwise_ll(train_feat).max(dim=0).values
-
-            diff = train_lls
-            idxs, values = (
-                diff.sort(descending=False).indices,
-                diff.sort(descending=False).values,
-            )
-
-        elif mode == "highest_ll_diff":
-            # Fit MoG
-            mog_gen = MoG(gen_feat)
-            log_sigmas_train, _ = mog_gen.fit(train_feat)
-
-            train_lls = mog_gen.get_pairwise_ll(train_feat).max(dim=0).values
-            test_lls = mog_gen.get_pairwise_ll(test_feat).max(dim=0).values
-
-            # diff = torch.cat([train_lls.unsqueeze(1), -test_lls.unsqueeze(1)], dim=1).logsumexp(dim=1)
-            diff = train_lls - test_lls
-            idxs, values = (
-                diff.sort(descending=False).indices,
-                diff.sort(descending=False).values,
-            )
-
-        elif mode == "precision":
-            # Fit MoG
-            mog_train = MoG(train_feat)
-            log_sigmas_train, _ = mog_train.fit(gen_feat)
-
-            gen_lls = mog_train.get_pairwise_ll(gen_feat).max(dim=0).values
-
-            diff = gen_lls
-            idxs, values = (
-                diff.sort(descending=False).indices,
-                diff.sort(descending=False).values,
-            )
-            for i, quantile in enumerate(percentiles):
-                pos = int(len(train_feat) * quantile / 100)
-                print(values[pos])
-                overfit_idxs[i] = idxs[pos]
-
-            return overfit_idxs
-
-        sns.kdeplot(values.cpu().numpy())
+        diff = train_lls
+        idxs, values = (
+            diff.sort(descending=False).indices,
+            diff.sort(descending=False).values,
+        )
 
         for i, quantile in enumerate(percentiles):
             pos = int(len(gen_feat) * quantile / 100)
-            print(values[pos])
             overfit_idxs[i] = idxs[pos]
 
         return overfit_idxs

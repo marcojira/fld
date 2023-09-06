@@ -117,7 +117,11 @@ def kid_features_to_metric(features_1, features_2, **kwargs):
 class KID(Metric):
     def __init__(self, mode="train", ref_size=50000):
         super().__init__()
-        self.name = f"{mode.title()} KID - {ref_size//1000}k"
+
+        if self.mode == "train" and ref_size == 50000:
+            self.name = "KID"
+        else:
+            self.name = f"{mode.title()} KID - {ref_size//1000}k"
         self.mode = mode
         self.ref_size = ref_size
 

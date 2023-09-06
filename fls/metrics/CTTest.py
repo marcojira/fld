@@ -156,10 +156,10 @@ def C_T(Pn, Pn_cells, Qm, Qm_cells, T, T_cells, tau):
     return C_T
 
 
-class CTScore(Metric):
+class CTTest(Metric):
     def __init__(self):
         super().__init__()
-        self.name = "CTScore"
+        self.name = "CTTest"
 
     def compute_metric(
         self,

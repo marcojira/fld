@@ -8,6 +8,7 @@ import yaml
 
 import torchvision
 from PIL import Image
+from fls.datasets.SamplesDataset import SamplesDataset
 
 CHUNK_SIZE = 100000
 
@@ -46,7 +47,7 @@ class TransformedDataset(torch.utils.data.Dataset):
 
 
 class FeatureExtractor:
-    def __init__(self, recompute=False, save_path="config"):
+    def __init__(self, recompute=False, save_path="features"):
         self.recompute = recompute
 
         if save_path == "config":
@@ -70,55 +71,40 @@ class FeatureExtractor:
         """TO BE IMPLEMENTED BY EACH MODULE"""
         pass
 
-    def get_curr_features (self, img_array, idx_beg, idx_end, batchsize):
-        img_sub_array = to_img(img_array[idx_beg:idx_end])
-        img_batch = torch.stack(
-            [
-                self.preprocess_batch(Image.fromarray(img_sub_array[i]))
-                for i in range(len(img_sub_array))
-            ]
-        )
-        curr_features = self.get_feature_batch(img_batch.cuda())
-        return curr_features
+    def get_features_from_tensor(self, img_array, batch_size):
+        """Gets features from large tensor in [-1, 1]"""
 
-    def get_gen_features_from_tensor(self, img_array, batchsize):
+        def get_batch_features(self, img_array, idx_beg, idx_end):
+            img_sub_array = to_img(img_array[idx_beg:idx_end])
+            img_batch = torch.stack(
+                [
+                    self.preprocess_batch(Image.fromarray(img_sub_array[i]))
+                    for i in range(len(img_sub_array))
+                ]
+            )
+            batch_features = self.get_feature_batch(img_batch.cuda())
+            return batch_features
 
         n_gen_samples = img_array.shape[0]
-        num_batches = n_gen_samples // batchsize
+        num_batches = n_gen_samples // batch_size
         features = torch.zeros(n_gen_samples, self.features_size)
 
-        for i in tqdm(range(num_batches), desc='Features extraction loop'):
-            idx_beg = batchsize * i
-            idx_end = batchsize * (i+1)
-            features[idx_beg:idx_end] = self.get_curr_features(
-                img_array, idx_beg, idx_end, batchsize)
-
-        idx_beg = batchsize * num_batches
-        idx_end = -1
-        features[idx_beg:idx_end] = self.get_curr_features(
-            img_array, idx_beg, idx_end, batchsize)
+        for i in tqdm(range(num_batches), desc="Features extraction loop"):
+            idx_beg = batch_size * i
+            idx_end = batch_size * (i + 1)
+            features[idx_beg:idx_end] = get_batch_features(img_array, idx_beg, idx_end)
 
         return features
 
-    def get_gen_features(self, f, size=10000):
-        try:
-            img_array = f()
-            batch_size = img_array.shape[0]
-        except:
-            all_img_array = f
-            batch_size = all_img_array.shape[0]
-            # all_img_array = to_img(f)
+    def get_features_from_gen(self, f, size=10000):
+        img_array = f()
+        batch_size = img_array.shape[0]
 
         num_batches = math.ceil(size / batch_size)
-
         features = torch.zeros(num_batches * batch_size, self.features_size)
 
         for i in tqdm(range(num_batches)):
-            try:
-                img_array = to_img(f())
-            except:
-                img_array = to_img(all_img_array[i * batch_size:(i+1)*batch_size, :])
-                # import ipdb; ipdb.set_trace()
+            img_array = to_img(f())
             img_batch = torch.stack(
                 [
                     self.preprocess_batch(Image.fromarray(img_array[i]))
@@ -126,12 +112,16 @@ class FeatureExtractor:
                 ]
             )
             curr_features = self.get_feature_batch(img_batch.cuda())
-
             features[i * batch_size : (i + 1) * batch_size] = curr_features
 
         return features[:size]
 
-    def get_all_features(self, dataset):
+    def get_features_from_path(self, path):
+        dataset = SamplesDataset("", path)
+        feat = self.get_all_features(dataset)
+        return feat
+
+    def get_features_from_dataset(self, dataset):
         """Returns combined features for all chunks"""
         features = []
         for _, feature in self.get_features(dataset):

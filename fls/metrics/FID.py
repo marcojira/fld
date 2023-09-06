@@ -73,7 +73,11 @@ def get_activation_statistics(act):
 class FID(Metric):
     def __init__(self, mode="train", ref_size=50000):
         super().__init__()
-        self.name = f"{mode.title()} FID - {ref_size//1000}k"
+
+        if self.mode == "train" and ref_size == 50000:
+            self.name = "FID"
+        else:
+            self.name = f"{mode.title()} FID - {ref_size//1000}k"
         self.mode = mode
         self.ref_size = ref_size
 
@@ -83,8 +87,6 @@ class FID(Metric):
         test_feat,
         gen_feat,
     ):
-        mu1, sigma1 = get_activation_statistics(gen_feat.cpu().numpy())
-
         def sample_ref_feat(feat):
             if feat.shape[0] > self.ref_size:
                 return feat[
@@ -94,21 +96,11 @@ class FID(Metric):
 
         if self.mode == "train":
             ref_feat = sample_ref_feat(train_feat)
-            mu2, sigma2 = get_activation_statistics(ref_feat.cpu().numpy())
-            return calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
         elif self.mode == "test":
             ref_feat = sample_ref_feat(test_feat)
-            mu2, sigma2 = get_activation_statistics(ref_feat.cpu().numpy())
-            return calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
-        elif self.mode == "train - test":
-            train_feat = sample_ref_feat(train_feat)
-            mu2, sigma2 = get_activation_statistics(train_feat.cpu().numpy())
-            train_fid = calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
-
-            test_feat = sample_ref_feat(test_feat)
-            mu2, sigma2 = get_activation_statistics(test_feat.cpu().numpy())
-            test_fid = calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
-
-            return train_fid - test_fid
         else:
             raise ValueError("reference_feat must be one of 'train' or 'test'")
+
+        mu1, sigma1 = get_activation_statistics(gen_feat.cpu().numpy())
+        mu2, sigma2 = get_activation_statistics(ref_feat.cpu().numpy())
+        return calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
