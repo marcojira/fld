@@ -74,6 +74,7 @@ class FID(Metric):
     def __init__(self, mode="train", ref_size=50000):
         super().__init__()
 
+        self.mode = mode
         if self.mode == "train" and ref_size == 50000:
             self.name = "FID"
         else:
