@@ -24,13 +24,13 @@ class TransformedDataset(torch.utils.data.Dataset):
         return len(self.dataset)
 
 
-config_file = os.path.join(os.path.dirname(__file__), "..", "config.yaml")
-with open(config_file, "r") as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
+# config_file = os.path.join(os.path.dirname(__file__), "..", "config.yaml")
+# with open(config_file, "r") as f:
+#     config = yaml.load(f, Loader=yaml.FullLoader)
 
 
 class FeatureExtractor:
-    def __init__(self, recompute=False, save_path=config["feature_save_path"]):
+    def __init__(self, recompute=False, save_path=False):
         self.recompute = recompute
         self.save_path = os.path.join(save_path, self.name) if save_path else False
         os.makedirs(self.save_path, exist_ok=True)
