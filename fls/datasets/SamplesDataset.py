@@ -10,16 +10,17 @@ class SamplesDataset(Dataset):
     """
 
     def __init__(
-        self, name, path=False, extension="png", transform=None, conditional=False
+        self, path, name="", extension="png", transform=None, conditional=False
     ):
-        self.name = name
         self.path = path
+        self.name = name
         self.extension = extension
 
-        self.conditional = conditional
+        self.conditional = conditional  # If conditional, will get the class from the parent folder's name
         self.transform = transform
         self.files = []
-        self.files_loaded = False
+
+        self.files_loaded = False  # For lazy loading of files
 
     def load_files(self):
         for curr_path in Path(self.path).rglob(f"*.{self.extension}"):

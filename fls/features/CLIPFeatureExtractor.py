@@ -5,10 +5,10 @@ from fls.features.FeatureExtractor import FeatureExtractor
 
 
 class CLIPFeatureExtractor(FeatureExtractor):
-    def __init__(self, recompute=False, save_path=None):
+    def __init__(self, save_path=None):
         self.name = "clip"
 
-        super().__init__(recompute=recompute, save_path=save_path)
+        super().__init__(save_path)
 
         self.features_size = 512
         self.preprocess = transforms.Compose(
@@ -26,9 +26,6 @@ class CLIPFeatureExtractor(FeatureExtractor):
         )
         self.model, _ = clip.load("ViT-B/32", device="cuda")
         self.model.eval()
-
-    def preprocess_batch(self, img_batch):
-        return self.preprocess(img_batch)
 
     def get_feature_batch(self, img_batch):
         with torch.no_grad():

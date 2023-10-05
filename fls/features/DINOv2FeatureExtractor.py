@@ -4,9 +4,9 @@ from fls.features.FeatureExtractor import FeatureExtractor
 
 
 class DINOv2FeatureExtractor(FeatureExtractor):
-    def __init__(self, recompute=False, save_path=None):
+    def __init__(self, save_path=None):
         self.name = f"dinov2"
-        super().__init__(recompute=recompute, save_path=save_path)
+        super().__init__(save_path)
 
         self.features_size = 768
         # From https://github.com/facebookresearch/dinov2/blob/main/dinov2/data/transforms.py#L44
@@ -23,13 +23,9 @@ class DINOv2FeatureExtractor(FeatureExtractor):
             ]
         )
 
-        # self.model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitl14")
         self.model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
         self.model.eval()
         self.model.to("cuda")
-
-    def preprocess_batch(self, img_batch):
-        return self.preprocess(img_batch)
 
     def get_feature_batch(self, img_batch):
         with torch.no_grad():

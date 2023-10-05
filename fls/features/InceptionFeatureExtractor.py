@@ -5,12 +5,14 @@ import torch
 
 from fls.features.FeatureExtractor import FeatureExtractor
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class InceptionFeatureExtractor(FeatureExtractor):
-    def __init__(self, recompute=False, save_path=None):
+    def __init__(self, save_path=None):
         self.name = "inception"
 
-        super().__init__(recompute=recompute, save_path=save_path)
+        super().__init__(save_path)
 
         self.features_size = 2048
         self.preprocess = TF.ToTensor()
@@ -18,12 +20,9 @@ class InceptionFeatureExtractor(FeatureExtractor):
         block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[2048]
         self.model = InceptionV3(
             [block_idx], resize_input=True, normalize_input=True
-        ).cuda()
+        ).to(DEVICE)
         self.model.eval()
         return
-
-    def preprocess_batch(self, img_batch):
-        return self.preprocess(img_batch)
 
     def get_feature_batch(self, img_batch):
         assert img_batch.max() <= 1
