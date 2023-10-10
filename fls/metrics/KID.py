@@ -2,6 +2,7 @@
 import numpy as np
 import torch
 from fls.metrics.Metric import Metric
+from fls.utils import shuffle
 from tqdm import tqdm
 
 
@@ -115,15 +116,16 @@ def kid_features_to_metric(features_1, features_2, **kwargs):
 
 
 class KID(Metric):
-    def __init__(self, mode="train", ref_size=50000):
+    def __init__(self, ref_feat="train", ref_size=None):
         super().__init__()
 
-        if self.mode == "train" and ref_size == 50000:
-            self.name = "KID"
-        else:
-            self.name = f"{mode.title()} KID - {ref_size//1000}k"
-        self.mode = mode
+        self.ref_feat = ref_feat  # One of ("train", "test")
         self.ref_size = ref_size
+
+        if ref_size is None:
+            self.name = f"{ref_feat.title()} KID"
+        else:
+            self.name = f"{ref_feat.title()} KID - {ref_size//1000}k"
 
     def compute_metric(
         self,
@@ -131,19 +133,12 @@ class KID(Metric):
         test_feat,
         gen_feat,
     ):
-        def sample_ref_feat(feat):
-            if feat.shape[0] > self.ref_size:
-                return feat[
-                    np.random.choice(feat.shape[0], self.ref_size, replace=False)
-                ]
-            return feat
-
-        if self.mode == "train":
-            ref_feat = sample_ref_feat(train_feat).cpu()
-        elif self.mode == "test":
-            ref_feat = sample_ref_feat(test_feat).cpu()
+        if self.ref_feat == "train":
+            ref_feat = shuffle(train_feat, self.ref_size).cpu()
+        elif self.ref_feat == "test":
+            ref_feat = shuffle(test_feat, self.ref_size).cpu()
         else:
-            raise ValueError("reference_feat must be one of 'train' or 'test'")
+            raise ValueError("ref_feat must be one of 'train' or 'test'")
 
         vals = kid_features_to_metric(gen_feat.cpu(), ref_feat)
-        return vals
+        return vals[KEY_METRIC_KID_MEAN]

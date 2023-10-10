@@ -65,15 +65,18 @@ class FeatureExtractor:
         """TO BE IMPLEMENTED BY EACH MODULE"""
         pass
 
-    def get_features(self, imgs: torch.utils.data.Dataset | torch.Tensor, name=None):
+    def get_features(
+        self, imgs: torch.utils.data.Dataset | torch.Tensor, name=None, recompute=False
+    ):
         """
         Gets the features from imgs (either a Dataset) or a tensor of images.
         - cache: Whether to load/save features to a cache
         - name: Unique name of set of images for caching purposes
         """
-
-        if name is not None:
+        if name:
             file_path = os.path.join(self.save_path, f"{name}.pt")
+
+        if name and not recompute:
             if os.path.exists(file_path):
                 return torch.load(file_path)
 
@@ -84,7 +87,7 @@ class FeatureExtractor:
         else:
             raise NotImplementedError(f"Cannot get features from {type(imgs)}")
 
-        if name is not None:
+        if name:
             torch.save(features, file_path)
 
         return features

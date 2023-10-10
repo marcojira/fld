@@ -2,6 +2,8 @@ class Metric:
     """Generic Metric class"""
 
     def __init__(self):
+        # To be implemented by each metric
+        self.name = None
         pass
 
     def compute_metric(

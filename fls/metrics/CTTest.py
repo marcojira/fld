@@ -159,7 +159,7 @@ def C_T(Pn, Pn_cells, Qm, Qm_cells, T, T_cells, tau):
 class CTTest(Metric):
     def __init__(self):
         super().__init__()
-        self.name = "CTTest"
+        self.name = r"$C_T$"
 
     def compute_metric(
         self,
@@ -179,7 +179,7 @@ class CTTest(Metric):
         T_labels = km_clf.predict(train_feat)
         Pn_labels = km_clf.predict(test_feat)
         Qm_labels = km_clf.predict(gen_feat)
-        C_T_score = C_T(
+        C_T_val = C_T(
             test_feat,
             Pn_labels,
             gen_feat,
@@ -189,4 +189,4 @@ class CTTest(Metric):
             tau=20 / len(gen_feat),
         )
 
-        return C_T_score
+        return C_T_val

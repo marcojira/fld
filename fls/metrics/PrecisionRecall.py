@@ -1,22 +1,24 @@
 """ PyTorch reimplementation from https://github.com/kynkaat/improved-precision-and-recall-metric """
 import math
 import torch
-
 from fls.metrics.Metric import Metric
 
+# Batch implementation for memory issues (completely equivalent)
 BATCH_SIZE = 10000
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class PrecisionRecall(Metric):
     # We use 4 to ignore distance to self
     def __init__(self, mode, num_neighbors=4):
         super().__init__()
-        self.name = mode
-        self.mode = mode
+
+        self.name = mode  # One of ("Precision", "Recall")
         self.num_neighbors = num_neighbors
 
     def get_nn_dists(self, feat):
-        dists = torch.zeros(feat.shape[0]).cuda()
+        dists = torch.zeros(feat.shape[0]).to(DEVICE)
         for i in range(math.ceil(feat.shape[0] / BATCH_SIZE)):
             start, end = i * BATCH_SIZE, (i + 1) * BATCH_SIZE
             curr_dists = torch.cdist(feat[start:end], feat)
@@ -47,12 +49,12 @@ class PrecisionRecall(Metric):
         test_feat,  # Test samples not used by Precision/Recall
         gen_feat,
     ):
-        train_feat = train_feat.cuda()
-        gen_feat = gen_feat.cuda()
+        train_feat = train_feat.to(DEVICE)
+        gen_feat = gen_feat.to(DEVICE)
 
-        if self.mode == "Precision":
-            return self.pct_in_manifold(gen_feat, train_feat).cpu().item()
-        elif self.mode == "Recall":
-            return self.pct_in_manifold(train_feat, gen_feat).cpu().item()
+        if self.name == "Precision":
+            return self.pct_in_manifold(gen_feat, train_feat).item()
+        elif self.name == "Recall":
+            return self.pct_in_manifold(train_feat, gen_feat).item()
         else:
             raise NotImplementedError

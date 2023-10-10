@@ -3,6 +3,8 @@
 import torch
 from fls.metrics.Metric import Metric
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class AuthPct(Metric):
     def __init__(self):
@@ -12,9 +14,10 @@ class AuthPct(Metric):
     def compute_metric(
         self,
         train_feat,
-        test_feat, # Test samples not used by AuthPct
+        test_feat,  # Test samples not used by AuthPct
         gen_feat,
     ):
+        train_feat, gen_feat = train_feat.to(DEVICE), gen_feat.to(DEVICE)
         real_dists = torch.cdist(train_feat, train_feat)
 
         # Hacky way to get it to ignore distance to self in nearest neighbor calculation

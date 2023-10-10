@@ -2,6 +2,7 @@
 import numpy as np
 from scipy import linalg
 from fls.metrics.Metric import Metric
+from fls.utils import shuffle
 
 
 def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
@@ -71,16 +72,16 @@ def get_activation_statistics(act):
 
 
 class FID(Metric):
-    def __init__(self, mode="train", ref_size=50000):
+    def __init__(self, ref_feat="train", ref_size=None):
         super().__init__()
 
-        self.mode = mode
-        if self.mode == "train" and ref_size == 50000:
-            self.name = "FID"
-        else:
-            self.name = f"{mode.title()} FID - {ref_size//1000}k"
-        self.mode = mode
+        self.ref_feat = ref_feat  # One of ("train", "test")
         self.ref_size = ref_size
+
+        if ref_size is None:
+            self.name = f"{ref_feat.title()} FID"
+        else:
+            self.name = f"{ref_feat.title()} FID - {ref_size//1000}k"
 
     def compute_metric(
         self,
@@ -88,19 +89,12 @@ class FID(Metric):
         test_feat,
         gen_feat,
     ):
-        def sample_ref_feat(feat):
-            if feat.shape[0] > self.ref_size:
-                return feat[
-                    np.random.choice(feat.shape[0], self.ref_size, replace=False)
-                ]
-            return feat
-
-        if self.mode == "train":
-            ref_feat = sample_ref_feat(train_feat)
-        elif self.mode == "test":
-            ref_feat = sample_ref_feat(test_feat)
+        if self.ref_feat == "train":
+            ref_feat = shuffle(train_feat, self.ref_size).cpu()
+        elif self.ref_feat == "test":
+            ref_feat = shuffle(test_feat, self.ref_size).cpu()
         else:
-            raise ValueError("reference_feat must be one of 'train' or 'test'")
+            raise ValueError("ref_feat must be one of 'train' or 'test'")
 
         mu1, sigma1 = get_activation_statistics(gen_feat.cpu().numpy())
         mu2, sigma2 = get_activation_statistics(ref_feat.cpu().numpy())
