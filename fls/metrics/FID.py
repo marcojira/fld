@@ -79,9 +79,9 @@ class FID(Metric):
         self.ref_size = ref_size
 
         if ref_size is None:
-            self.name = f"{ref_feat.title()} FID"
+            self.name = f"FID {ref_feat.title()}"
         else:
-            self.name = f"{ref_feat.title()} FID - {ref_size//1000}k"
+            self.name = f"FID {ref_feat.title()} - {ref_size//1000}k"
 
     def compute_metric(
         self,

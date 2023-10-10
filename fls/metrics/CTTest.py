@@ -174,7 +174,7 @@ class CTTest(Metric):
             test_feat = pca_xf.transform(test_feat)
             gen_feat = pca_xf.transform(gen_feat)
 
-        km_clf = KMeans(n_clusters=3).fit(train_feat)
+        km_clf = KMeans(n_clusters=3, n_init=10).fit(train_feat)
 
         T_labels = km_clf.predict(train_feat)
         Pn_labels = km_clf.predict(test_feat)

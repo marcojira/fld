@@ -123,9 +123,9 @@ class KID(Metric):
         self.ref_size = ref_size
 
         if ref_size is None:
-            self.name = f"{ref_feat.title()} KID"
+            self.name = f"KID {ref_feat.title()}"
         else:
-            self.name = f"{ref_feat.title()} KID - {ref_size//1000}k"
+            self.name = f"KID {ref_feat.title()} - {ref_size//1000}k"
 
     def compute_metric(
         self,

@@ -13,7 +13,7 @@ class FLS(Metric):
         # One of ("train", "test")
         # Corresponds to the set whose likelihood is evaluated with the MoG
         self.eval_feat = eval_feat
-        self.name = f"{eval_feat.title()} FLS"
+        self.name = f"FLS {eval_feat.title()}"
 
         # Corresponds to the likelihood of the test set under a MoG centered at half of the train set fit to the other half of the train set
         self.baseline_LL = baseline_LL
