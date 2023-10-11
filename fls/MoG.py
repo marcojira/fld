@@ -1,5 +1,10 @@
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tqdm import tqdm
+
+from fls.utils import shuffle
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -37,7 +42,7 @@ def compute_dists(x_data, x_gaussians):
 
 
 class MoG:
-    def __init__(self, mus, log_sigmas=None, lr=0.5, num_steps=250):
+    def __init__(self, mus, log_sigmas=None, lr=0.5, num_epochs=10):
         self.mus = mus
         self.num_gaussians = mus.shape[0]
         self.dim = mus.shape[1]
@@ -52,7 +57,7 @@ class MoG:
 
         # Optimization hyperparameters
         self.lr = lr
-        self.num_steps = num_steps
+        self.num_epochs = num_epochs
 
     def get_lls(self, x):
         dists = compute_dists(x, self.mus)
@@ -61,6 +66,7 @@ class MoG:
     def get_lls_from_dists(self, dists):
         """Gets the MoG likelihood using the matrix of distances"""
         exponent_term = self.get_pairwise_lls_from_dists(dists)
+        exponent_term -= np.log(self.num_gaussians)
         inner_term = torch.logsumexp(exponent_term, dim=1)
         return inner_term
 
@@ -79,31 +85,38 @@ class MoG:
         # allows for use of logsumexp for numerical stability
         exponent_term -= (self.dim / 2) * self.log_sigmas
         exponent_term -= (self.dim / 2) * np.log(2 * np.pi)
-        exponent_term -= np.log(self.num_gaussians)
         return exponent_term
 
-    def fit(self, x, batch_size=2500):
+    def fit(self, x, batch_size=5000):
         """Fit log_sigmas to minimize NLL of x under MoG"""
         # Tracking
         losses = []
 
         optim = torch.optim.Adam([self.log_sigmas], lr=self.lr)
-        dists = compute_dists(x, self.mus)
 
-        for _ in range(self.num_steps):
-            optim.zero_grad()
-            loss = -(self.get_lls_from_dists(dists)).mean()
+        x = shuffle(x)
+        for _ in tqdm(range(self.num_epochs), leave=False):
+            for batch in x.split(batch_size):
+                dists = compute_dists(batch, self.mus)
+                optim.zero_grad()
+                loss = -(self.get_lls_from_dists(dists)).mean()
+                loss /= self.dim
+                loss.backward()
+                optim.step()
 
-            loss.backward()
-            optim.step()
+                # We clamp log_sigmas to stop NANs for identical samples
+                with torch.no_grad():
+                    self.log_sigmas.data = self.log_sigmas.clamp(-30, 20).data
 
-            # Here we clamp log_sigmas to stop values exploding for identical samples
-            with torch.no_grad():
-                self.log_sigmas.data = self.log_sigmas.clamp(-30, 20).data
-
-            losses.append(loss.item())
+                losses.append(loss.item())
 
         self.log_sigmas = self.log_sigmas.detach()
+
+        plt.plot(losses)
+        plt.show()
+
+        sns.kdeplot(self.log_sigmas.cpu().numpy())
+        plt.show()
         return self.log_sigmas, losses
 
     def get_dim_adjusted_nlls(self, x):

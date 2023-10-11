@@ -30,11 +30,11 @@ class FLS(Metric):
 
         # Default eval_feat, fits a MoG centered at generated samples to train samples, then gets LL of test samples
         if self.eval_feat == "test":
-            nll = mog_gen.get_dim_adjusted_nlls(test_feat).mean()
+            nlls = mog_gen.get_dim_adjusted_nlls(test_feat)
         # As above but evalutes the LL of train samples
         elif self.eval_feat == "train":
-            nll = mog_gen.get_dim_adjusted_nlls(train_feat).mean()
+            nlls = mog_gen.get_dim_adjusted_nlls(train_feat)
         else:
             raise Exception(f"Invalid mode for FLS metric: {self.eval_feat}")
 
-        return nll.mean().item()
+        return nlls.mean().item()
