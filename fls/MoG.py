@@ -42,64 +42,83 @@ def compute_dists(x_data, x_gaussians):
 
 
 class MoG:
-    def __init__(self, mus, log_sigmas=None, lr=0.5, num_epochs=10):
+    def __init__(self, mus, log_sigmas=None, lr=0.3, num_epochs=50):
         self.mus = mus
         self.num_gaussians = mus.shape[0]
         self.dim = mus.shape[1]
 
         # Log sigmas are used for a stable optimization process
         if log_sigmas is None:
-            self.log_sigmas = torch.zeros(
-                self.num_gaussians, requires_grad=True, device=DEVICE
+            self.log_sigmas = torch.full(
+                (self.num_gaussians,), -0.1, requires_grad=True, device=DEVICE
             )
         else:
             self.log_sigmas = log_sigmas
+
+        self.origin_log_sigma = torch.tensor(0.0, device=DEVICE, requires_grad=True)
 
         # Optimization hyperparameters
         self.lr = lr
         self.num_epochs = num_epochs
 
-    def get_lls(self, x):
-        dists = compute_dists(x, self.mus)
-        return self.get_lls_from_dists(dists)
+    def dists(self, x):
+        return compute_dists(x, self.mus)
 
-    def get_lls_from_dists(self, dists):
-        """Gets the MoG likelihood using the matrix of distances"""
-        exponent_term = self.get_pairwise_lls_from_dists(dists)
-        exponent_term -= np.log(self.num_gaussians)
-        inner_term = torch.logsumexp(exponent_term, dim=1)
-        return inner_term
-
-    def get_pairwise_lls(self, x):
-        dists = compute_dists(x, self.mus)
-        return self.get_pairwise_lls_from_dists(dists)
-
-    def get_pairwise_lls_from_dists(self, dists):
+    def pairwise_lls_from_dists(self, dists, log_sigmas):
         """Returns an n x m matrix (where n is the number of samples and m the number of gaussians)
 
         An entry a_ij of this matrix is such that a_ij = log[N(x_i|x_j, sigma_j)]
         """
-        exponent_term = (-0.5 * dists) / (torch.exp(self.log_sigmas))
+        exponent_term = (-0.5 * dists) / (torch.exp(log_sigmas))
 
         # Here we use that dividing by x is equivalent to multiplying by e^{-ln(x)}
         # allows for use of logsumexp for numerical stability
-        exponent_term -= (self.dim / 2) * self.log_sigmas
+        exponent_term -= (self.dim / 2) * log_sigmas
         exponent_term -= (self.dim / 2) * np.log(2 * np.pi)
         return exponent_term
 
-    def fit(self, x, batch_size=5000):
+    def lls_from_pairwise(self, pairwise_lls, origin_lls=None, lambd=0.1):
+        if origin_lls is None:
+            all_lls = pairwise_lls - np.log(self.num_gaussians)
+        else:
+            pairwise_lls -= 1 / lambd * np.log(self.num_gaussians)
+            origin_lls -= 1 / (1 - lambd)
+            all_lls = torch.cat([pairwise_lls, origin_lls], dim=1)
+
+        lls = torch.logsumexp(all_lls, dim=1)
+        return lls
+
+    def lls(self, x):
+        dists = self.dists(x)
+        pairwise_lls = self.pairwise_lls_from_dists(dists, self.log_sigmas)
+        lls = self.lls_from_pairwise(pairwise_lls)
+
+        return lls
+
+    def fit(self, x, batch_size=10000):
         """Fit log_sigmas to minimize NLL of x under MoG"""
         # Tracking
         losses = []
 
-        optim = torch.optim.Adam([self.log_sigmas], lr=self.lr)
+        optim = torch.optim.Adam([self.log_sigmas, self.origin_log_sigma], lr=self.lr)
 
         x = shuffle(x)
         for _ in tqdm(range(self.num_epochs), leave=False):
             for batch in x.split(batch_size):
-                dists = compute_dists(batch, self.mus)
                 optim.zero_grad()
-                loss = -(self.get_lls_from_dists(dists)).mean()
+
+                dists = self.dists(batch)
+                pairwise_lls = self.pairwise_lls_from_dists(dists, self.log_sigmas)
+                # print(pairwise_lls)
+
+                # LL of points relative to origin point (ensures each point has some minimum LL)
+                origin_dists = (batch * batch).sum(dim=1, keepdim=True)
+                origin_lls = self.pairwise_lls_from_dists(
+                    origin_dists, self.origin_log_sigma
+                )
+
+                lls = self.lls_from_pairwise(pairwise_lls, origin_lls)
+                loss = -lls.mean()
                 loss /= self.dim
                 loss.backward()
                 optim.step()
@@ -117,10 +136,14 @@ class MoG:
 
         sns.kdeplot(self.log_sigmas.cpu().numpy())
         plt.show()
+
+        sns.kdeplot(lls.detach().cpu().numpy())
+        plt.show()
+
         return self.log_sigmas, losses
 
     def get_dim_adjusted_nlls(self, x):
         """Get LL of x under MoG, adjusted for dimension"""
-        lls = self.get_lls(x)
+        lls = self.lls(x)
         dim_adjusted_nlls = -lls / self.dim
         return dim_adjusted_nlls
