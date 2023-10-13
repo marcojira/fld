@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,6 +10,14 @@ from fls.MoG import preprocess_feat, MoG
 
 
 GEN_SIZE = 10000
+
+import json
+
+curr_path = os.path.dirname(os.path.abspath(__file__))
+
+with open(os.path.join(curr_path, "baseline_lls.json"), "rb") as f:
+    baseline_lls = json.load(f)
+    print(baseline_lls)
 
 
 class FLS(Metric):

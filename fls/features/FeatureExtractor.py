@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pickle
 import torch
 import os
 import math
@@ -11,6 +10,7 @@ from pathlib import Path
 from tqdm import tqdm
 from PIL import Image
 
+from fls.config import Cfg
 from fls.datasets.SamplesDataset import SamplesDataset
 from pathlib import Path
 
@@ -51,8 +51,7 @@ class TransformedDataset(torch.utils.data.Dataset):
 class FeatureExtractor:
     def __init__(self, save_path: str | None):
         if save_path is None:
-            current_file_path = Path(__file__).absolute()
-            save_path = os.path.join(current_file_path.parent, "cached_features")
+            save_path = Cfg.FEATURES_CACHE_PATH
 
         self.save_path = os.path.join(save_path, self.name)
         os.makedirs(self.save_path, exist_ok=True)
