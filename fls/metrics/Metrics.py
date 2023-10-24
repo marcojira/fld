@@ -11,8 +11,8 @@ ALL_METRICS = [
     CTTest(),
     FID("train"),
     FID("test", ref_size=4000),
-    FLS("test"),
     FLS("train"),
+    FLS("test"),
     KID("train"),
     KID("test"),
     PrecisionRecall("Precision"),
@@ -20,9 +20,9 @@ ALL_METRICS = [
 ]
 
 MAIN_METRICS = [
-    # AuthPct(),
-    # CTTest(),
-    # FID(),
+    AuthPct(),
+    CTTest(),
+    FID(),
     FLS(),
     KID(),
     PrecisionRecall("Precision"),

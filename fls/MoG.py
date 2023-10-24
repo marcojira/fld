@@ -8,6 +8,12 @@ from fls.utils import shuffle
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+LR = 0.5
+NUM_EPOCHS = 50
+INIT_LOG_SIGMAS = 0.0
+BATCH_SIZE = 10000
+ORIGIN_DIST_PROP = 0.1
+
 
 def preprocess_feat(train_feat, test_feat, gen_feat, normalize=True):
     # Assert correct device
@@ -42,7 +48,7 @@ def compute_dists(x_data, x_gaussians):
 
 
 class MoG:
-    def __init__(self, mus, log_sigmas=None, lr=0.3, num_epochs=50):
+    def __init__(self, mus, log_sigmas=None, lr=0.5, num_epochs=50):
         self.mus = mus
         self.num_gaussians = mus.shape[0]
         self.dim = mus.shape[1]
@@ -50,12 +56,17 @@ class MoG:
         # Log sigmas are used for a stable optimization process
         if log_sigmas is None:
             self.log_sigmas = torch.full(
-                (self.num_gaussians,), -0.1, requires_grad=True, device=DEVICE
+                (self.num_gaussians,),
+                INIT_LOG_SIGMAS,
+                requires_grad=True,
+                device=DEVICE,
             )
         else:
             self.log_sigmas = log_sigmas
 
-        self.origin_log_sigma = torch.tensor(0.0, device=DEVICE, requires_grad=True)
+        self.origin_log_sigma = torch.tensor(
+            INIT_LOG_SIGMAS, device=DEVICE, requires_grad=True
+        )
 
         # Optimization hyperparameters
         self.lr = lr
@@ -77,12 +88,12 @@ class MoG:
         exponent_term -= (self.dim / 2) * np.log(2 * np.pi)
         return exponent_term
 
-    def lls_from_pairwise(self, pairwise_lls, origin_lls=None, lambd=0.1):
+    def lls_from_pairwise(self, pairwise_lls, origin_lls=None):
         if origin_lls is None:
             all_lls = pairwise_lls - np.log(self.num_gaussians)
         else:
-            pairwise_lls -= 1 / lambd * np.log(self.num_gaussians)
-            origin_lls -= 1 / (1 - lambd)
+            pairwise_lls -= np.log(self.num_gaussians)
+
             all_lls = torch.cat([pairwise_lls, origin_lls], dim=1)
 
         lls = torch.logsumexp(all_lls, dim=1)
@@ -95,24 +106,23 @@ class MoG:
 
         return lls
 
-    def fit(self, x, batch_size=10000):
+    def fit(self, x, batch_size=BATCH_SIZE):
         """Fit log_sigmas to minimize NLL of x under MoG"""
-        # Tracking
         losses = []
-
+        mean_x = x.mean(dim=0).unsqueeze(0)
         optim = torch.optim.Adam([self.log_sigmas, self.origin_log_sigma], lr=self.lr)
-
         x = shuffle(x)
-        for _ in tqdm(range(self.num_epochs), leave=False):
+
+        for epoch in tqdm(range(self.num_epochs), leave=False):
             for batch in x.split(batch_size):
                 optim.zero_grad()
 
                 dists = self.dists(batch)
                 pairwise_lls = self.pairwise_lls_from_dists(dists, self.log_sigmas)
-                # print(pairwise_lls)
 
                 # LL of points relative to origin point (ensures each point has some minimum LL)
-                origin_dists = (batch * batch).sum(dim=1, keepdim=True)
+                multiplier = (1 - ORIGIN_DIST_PROP) ** 2
+                origin_dists = multiplier * compute_dists(batch, mean_x)
                 origin_lls = self.pairwise_lls_from_dists(
                     origin_dists, self.origin_log_sigma
                 )
@@ -130,15 +140,6 @@ class MoG:
                 losses.append(loss.item())
 
         self.log_sigmas = self.log_sigmas.detach()
-
-        plt.plot(losses)
-        plt.show()
-
-        sns.kdeplot(self.log_sigmas.cpu().numpy())
-        plt.show()
-
-        sns.kdeplot(lls.detach().cpu().numpy())
-        plt.show()
 
         return self.log_sigmas, losses
 

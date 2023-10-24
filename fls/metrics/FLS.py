@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import json
 
 from fls.utils import shuffle
 from fls.metrics.Metric import Metric
@@ -11,13 +12,9 @@ from fls.MoG import preprocess_feat, MoG
 
 GEN_SIZE = 10000
 
-import json
-
 curr_path = os.path.dirname(os.path.abspath(__file__))
-
-with open(os.path.join(curr_path, "baseline_lls.json"), "rb") as f:
-    baseline_lls = json.load(f)
-    print(baseline_lls)
+with open(os.path.join(curr_path, "baseline_nlls.json"), "rb") as f:
+    baseline_nlls = json.load(f)
 
 
 class FLS(Metric):
@@ -75,3 +72,4 @@ class FLS(Metric):
         mog.fit(train_feat[split_size:])
 
         self.baseline_nll = mog.get_dim_adjusted_nlls(test_feat).mean().item()
+        return self.baseline_nll
