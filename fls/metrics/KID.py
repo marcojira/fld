@@ -140,5 +140,6 @@ class KID(Metric):
         else:
             raise ValueError("ref_feat must be one of 'train' or 'test'")
 
+        gen_feat = shuffle(gen_feat, 50_000)
         vals = kid_features_to_metric(gen_feat.cpu(), ref_feat)
         return vals[KEY_METRIC_KID_MEAN]

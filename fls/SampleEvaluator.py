@@ -1,11 +1,16 @@
+import numpy as np
 import torch
 from fls.MoG import MoG, compute_dists, preprocess_feat
+from fls.utils import shuffle
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+BATCH_SIZE = 10000
 
 
 class SampleEvaluator:
-    def get_sample_quality_scores(self, train_feat, test_feat, gen_feat):
+    def get_sample_quality_scores(
+        self, train_feat, test_feat, gen_feat, batch_size=BATCH_SIZE
+    ):
         """
         Gets quality score for each sample. Quality score is the dimension-adjusted LL of a generated sample from MoG centered at test samples fit to the train samples.
 
@@ -14,13 +19,23 @@ class SampleEvaluator:
         train_feat, test_feat, gen_feat = preprocess_feat(
             train_feat, test_feat, gen_feat
         )
+        train_feat = shuffle(train_feat)
+        test_feat = shuffle(test_feat)
 
         mog_test = MoG(test_feat)
         mog_test.fit(train_feat)
-        lls = mog_test.get_lls(gen_feat)
-        return lls / train_feat.shape[1]
 
-    def get_sample_memorization_scores(self, train_feat, test_feat, gen_feat):
+        scores = []
+        for batch in gen_feat.split(batch_size):
+            lls = mog_test.lls(batch)
+            scores.append(lls)
+
+        scores = torch.cat(scores)
+        return scores / train_feat.shape[1]
+
+    def get_sample_memorization_scores(
+        self, train_feat, test_feat, gen_feat, batch_size=BATCH_SIZE
+    ):
         """
         Gets memorizations score for each sample.
 
@@ -28,11 +43,39 @@ class SampleEvaluator:
 
         A higher score (i.e. LL) indicates a more memorized sample
         """
+        idx = np.random.choice(len(gen_feat), len(gen_feat), replace=False)
+        # Getting the indices of the sorted idx reverses the mapping 0->n1, 2->n2, etc.
+        gen_feat = gen_feat[idx]
+        reverse_idx = torch.tensor(idx).sort().indices
+
         train_feat, test_feat, gen_feat = preprocess_feat(
             train_feat, test_feat, gen_feat
         )
         mog_gen = MoG(gen_feat)
         mog_gen.fit(train_feat)
 
-        pairwise_lls = mog_gen.get_pairwise_lls(train_feat)
-        return pairwise_lls.max(dim=0).values
+        scores = float("-inf") * torch.ones((len(gen_feat),), device=DEVICE)
+        for batch in train_feat.split(batch_size):
+            dists = mog_gen.dists(batch)
+            pairwise_lls = mog_gen.pairwise_lls_from_dists(dists, mog_gen.log_sigmas)
+            scores = torch.maximum(scores, pairwise_lls.max(dim=0).values)
+
+        return scores[reverse_idx] / train_feat.shape[1]
+
+    def get_nn(self, base_feat, other_feat, batch_size=BATCH_SIZE):
+        """
+        Returns idxs, dists of nearest neighbor of base_feat in other_feat
+        """
+        base_feat, other_feat = base_feat.to(DEVICE), other_feat.to(DEVICE)
+        min_idxs = torch.zeros((len(base_feat),), dtype=torch.long).to(DEVICE)
+        min_dists = float("inf") * torch.ones((len(base_feat),)).to(DEVICE)
+
+        for i, batch in enumerate(other_feat.split(batch_size)):
+            dists = compute_dists(batch, base_feat)
+            curr_min_dists = dists.min(dim=0)
+
+            smaller = curr_min_dists.values < min_dists
+            min_idxs[smaller] = curr_min_dists.indices[smaller] + i * batch_size
+            min_dists[smaller] = curr_min_dists.values[smaller]
+
+        return min_idxs, min_dists

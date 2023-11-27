@@ -11,25 +11,22 @@ from fls.MoG import preprocess_feat, MoG
 
 
 GEN_SIZE = 10000
-
-curr_path = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(curr_path, "baseline_nlls.json"), "rb") as f:
-    baseline_nlls = json.load(f)
+TEST_SIZE = 10000
 
 
-class FLS(Metric):
-    def __init__(self, eval_feat="test", baseline_nll=None, gen_size=GEN_SIZE):
+class FLS_P(Metric):
+    """Precision equivalent of FLS (i.e. model the density of the test and get likelihood of gen)"""
+
+    def __init__(self, baseline_nll=None, gen_size=GEN_SIZE, test_size=TEST_SIZE):
         super().__init__()
 
-        # One of ("train", "test")
-        # Corresponds to the set whose likelihood is evaluated with the MoG
-        self.eval_feat = eval_feat
-        self.name = f"FLS {eval_feat.title()}"
+        self.name = f"FLS-P"
 
         # Corresponds to the likelihood of the test set under a MoG centered at half of the train set fit to the other half of the train set
         self.baseline_nll = baseline_nll
 
         self.gen_size = gen_size
+        self.test_size = test_size
 
     def get_nll_diff(self, nll, baseline_nll):
         return (nll - baseline_nll) * 100
@@ -38,24 +35,21 @@ class FLS(Metric):
         if len(gen_feat) > self.gen_size:
             gen_feat = shuffle(gen_feat, min(len(gen_feat), self.gen_size))
 
+        if len(test_feat) > self.test_size:
+            test_feat = shuffle(test_feat, min(len(test_feat), self.test_size))
+
         """Preprocess"""
         train_feat, test_feat, gen_feat = preprocess_feat(
             train_feat, test_feat, gen_feat
         )
+        train_feat = shuffle(train_feat)
 
-        # Fit MoGs
-        mog_gen = MoG(gen_feat)
-        mog_gen.fit(train_feat)
+        # Fit MoG at test feat to train feat
+        mog = MoG(test_feat)
+        mog.fit(train_feat)
 
-        # Default eval_feat, fits a MoG centered at generated samples to train samples, then gets LL of test samples
-        if self.eval_feat == "test":
-            nlls = mog_gen.get_dim_adjusted_nlls(test_feat)
-        # As above but evalutes the LL of train samples
-        elif self.eval_feat == "train":
-            nlls = mog_gen.get_dim_adjusted_nlls(train_feat)
-        else:
-            raise Exception(f"Invalid mode for FLS metric: {self.eval_feat}")
-
+        # Get nll of gen_feat
+        nlls = mog.get_dim_adjusted_nlls(gen_feat)
         nll = nlls.mean().item()
 
         if not self.baseline_nll:
@@ -68,13 +62,14 @@ class FLS(Metric):
     def get_baseline_nll(self, train_feat, test_feat):
         """Preprocess"""
         train_feat, test_feat, _ = preprocess_feat(train_feat, test_feat, train_feat)
-
         train_feat = shuffle(train_feat)
+        if len(test_feat) > self.test_size:
+            test_feat = shuffle(test_feat, min(len(test_feat), self.test_size))
 
         # Fit MoGs
         split_size = min(self.gen_size, len(train_feat) // 2)
-        mog = MoG(train_feat[:split_size])
+        mog = MoG(test_feat)
         mog.fit(train_feat[split_size:])
 
-        baseline_nlls = mog.get_dim_adjusted_nlls(test_feat)
+        baseline_nlls = mog.get_dim_adjusted_nlls(train_feat[:split_size])
         return baseline_nlls.mean().item()

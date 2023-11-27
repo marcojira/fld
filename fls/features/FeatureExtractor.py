@@ -3,16 +3,12 @@ from __future__ import annotations
 import torch
 import os
 import math
-import numpy as np
+import json
 import torchvision
 
-from pathlib import Path
 from tqdm import tqdm
-from PIL import Image
 
-from fls.config import Cfg
 from fls.datasets.SamplesDataset import SamplesDataset
-from pathlib import Path
 
 NUM_WORKERS = 4
 BATCH_SIZE = 256
@@ -51,10 +47,19 @@ class TransformedDataset(torch.utils.data.Dataset):
 class FeatureExtractor:
     def __init__(self, save_path: str | None):
         if save_path is None:
-            save_path = Cfg.FEATURES_CACHE_PATH
+            curr_path = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(curr_path, "config.json")
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+                save_path = config["feature_cache_path"]
+                save_path = os.path.join(save_path, self.name)
+        else:
+            save_path = os.path.join(save_path, self.name)
 
-        self.save_path = os.path.join(save_path, self.name)
-        os.makedirs(self.save_path, exist_ok=True)
+        self.save_path = save_path
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
 
         # TO BE IMPLEMENTED BY EACH MODULE
         self.features_size = None
@@ -69,15 +74,15 @@ class FeatureExtractor:
     ):
         """
         Gets the features from imgs (either a Dataset) or a tensor of images.
-        - cache: Whether to load/save features to a cache
         - name: Unique name of set of images for caching purposes
+        - recompute: Whether to recompute cached features
         """
-        if name:
+        if self.save_path and name:
             file_path = os.path.join(self.save_path, f"{name}.pt")
 
-        if name and not recompute:
-            if os.path.exists(file_path):
-                return torch.load(file_path)
+            if not recompute:
+                if os.path.exists(file_path):
+                    return torch.load(file_path)
 
         if isinstance(imgs, torch.utils.data.Dataset):
             features = self.get_dataset_features(imgs)
@@ -86,7 +91,7 @@ class FeatureExtractor:
         else:
             raise NotImplementedError(f"Cannot get features from {type(imgs)}")
 
-        if name:
+        if self.save_path and name:
             torch.save(features, file_path)
 
         return features

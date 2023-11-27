@@ -3,7 +3,7 @@ import math
 import torch
 from fls.metrics.Metric import Metric
 
-# Batch implementation for memory issues (completely equivalent)
+# Batch implementation for memory issues (equivalent)
 BATCH_SIZE = 10000
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

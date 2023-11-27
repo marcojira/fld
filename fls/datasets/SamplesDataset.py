@@ -6,7 +6,8 @@ from pathlib import Path
 class SamplesDataset(Dataset):
     """
     Creates torch Dataset from directory of images.
-    Must be structured as dir/<class>/<img_name>.<extension> for `conditional=True
+    Must be structured as dir/<class>/<img_name>.<extension> for `conditional=True`
+    For `conditional=False`, will search recursively for all files that match the extension
     """
 
     def __init__(
@@ -44,4 +45,7 @@ class SamplesDataset(Dataset):
         with Image.open(img_path).convert("RGB") as img:
             if self.transform:
                 img = self.transform(img)
-            return img, int(class_id)
+            return img, class_id
+
+    def get_class(self, idx):
+        return self.files[idx][1]

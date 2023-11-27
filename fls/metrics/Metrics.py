@@ -10,7 +10,7 @@ ALL_METRICS = [
     AuthPct(),
     CTTest(),
     FID("train"),
-    FID("test", ref_size=4000),
+    FID("test"),
     FLS("train"),
     FLS("test"),
     KID("train"),
@@ -18,13 +18,4 @@ ALL_METRICS = [
     PrecisionRecall("Precision"),
     PrecisionRecall("Recall"),
 ]
-
-MAIN_METRICS = [
-    AuthPct(),
-    CTTest(),
-    FID(),
-    FLS(),
-    KID(),
-    PrecisionRecall("Precision"),
-    PrecisionRecall("Recall"),
-]
+ALL_METRICS_DICT = {metric.name: metric for metric in ALL_METRICS}

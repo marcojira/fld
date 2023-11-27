@@ -96,6 +96,7 @@ class FID(Metric):
         else:
             raise ValueError("ref_feat must be one of 'train' or 'test'")
 
+        gen_feat = shuffle(gen_feat, 50_000)
         mu1, sigma1 = get_activation_statistics(gen_feat.cpu().numpy())
         mu2, sigma2 = get_activation_statistics(ref_feat.cpu().numpy())
         return calculate_frechet_distance(mu1, sigma1, mu2, sigma2)

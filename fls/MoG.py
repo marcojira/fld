@@ -48,7 +48,7 @@ def compute_dists(x_data, x_gaussians):
 
 
 class MoG:
-    def __init__(self, mus, log_sigmas=None, lr=0.5, num_epochs=50):
+    def __init__(self, mus, log_sigmas=None, lr=LR, num_epochs=NUM_EPOCHS):
         self.mus = mus
         self.num_gaussians = mus.shape[0]
         self.dim = mus.shape[1]
@@ -113,11 +113,18 @@ class MoG:
         optim = torch.optim.Adam([self.log_sigmas, self.origin_log_sigma], lr=self.lr)
         x = shuffle(x)
 
+        cached_dists = None
+        if len(x) < 250_000:
+            cached_dists = self.dists(x)
+
         for epoch in tqdm(range(self.num_epochs), leave=False):
-            for batch in x.split(batch_size):
+            for i, batch in enumerate(x.split(batch_size)):
                 optim.zero_grad()
 
-                dists = self.dists(batch)
+                if cached_dists is not None:
+                    dists = cached_dists[i * batch_size : (i + 1) * batch_size]
+                else:
+                    dists = self.dists(batch)
                 pairwise_lls = self.pairwise_lls_from_dists(dists, self.log_sigmas)
 
                 # LL of points relative to origin point (ensures each point has some minimum LL)
@@ -135,7 +142,7 @@ class MoG:
 
                 # We clamp log_sigmas to stop NANs for identical samples
                 with torch.no_grad():
-                    self.log_sigmas.data = self.log_sigmas.clamp(-30, 20).data
+                    self.log_sigmas.data = self.log_sigmas.clamp(-40, 20).data
 
                 losses.append(loss.item())
 
@@ -147,4 +154,5 @@ class MoG:
         """Get LL of x under MoG, adjusted for dimension"""
         lls = self.lls(x)
         dim_adjusted_nlls = -lls / self.dim
+
         return dim_adjusted_nlls

@@ -2,11 +2,20 @@
 
 import torch
 from fls.metrics.Metric import Metric
+from fls.utils import shuffle
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# Of samples to take from the compared train/gen sets (full sets aren't used for memory reasons)
+SIZE = 10000
+
 
 class AuthPct(Metric):
+    """
+    Computes the % of samples where the distance to the sample's nearest neighbor in the train set
+    is smaller than the distance between that train sample and its nearest train sample
+    """
+
     def __init__(self):
         super().__init__()
         self.name = "AuthPct"
@@ -18,6 +27,7 @@ class AuthPct(Metric):
         gen_feat,
     ):
         train_feat, gen_feat = train_feat.to(DEVICE), gen_feat.to(DEVICE)
+        train_feat, gen_feat = shuffle(train_feat, SIZE), shuffle(gen_feat, SIZE)
         real_dists = torch.cdist(train_feat, train_feat)
 
         # Hacky way to get it to ignore distance to self in nearest neighbor calculation
