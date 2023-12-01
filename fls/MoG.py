@@ -147,7 +147,6 @@ class MoG:
                 losses.append(loss.item())
 
         self.log_sigmas = self.log_sigmas.detach()
-
         return self.log_sigmas, losses
 
     def get_dim_adjusted_nlls(self, x):

@@ -2,30 +2,12 @@ from __future__ import annotations
 
 import torch
 import os
-import math
 import json
-import torchvision
-
 from tqdm import tqdm
-
-from fls.datasets.SamplesDataset import SamplesDataset
 
 NUM_WORKERS = 4
 BATCH_SIZE = 256
-CHUNK_SIZE = 100000
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def to_img(img_array):
-    """From tensor in [-1, 1] of shape [B, C, W, H] to numpy int images"""
-    return (
-        (img_array * 127.5 + 128)
-        .clip(0, 255)
-        .to(torch.uint8)
-        .permute(0, 2, 3, 1)
-        .cpu()
-        .numpy()
-    )
 
 
 class TransformedDataset(torch.utils.data.Dataset):
@@ -69,9 +51,7 @@ class FeatureExtractor:
         """TO BE IMPLEMENTED BY EACH MODULE"""
         pass
 
-    def get_features(
-        self, imgs: torch.utils.data.Dataset | torch.Tensor, name=None, recompute=False
-    ):
+    def get_features(self, imgs: torch.utils.data.Dataset, name=None, recompute=False):
         """
         Gets the features from imgs (either a Dataset) or a tensor of images.
         - name: Unique name of set of images for caching purposes
@@ -86,10 +66,10 @@ class FeatureExtractor:
 
         if isinstance(imgs, torch.utils.data.Dataset):
             features = self.get_dataset_features(imgs)
-        elif isinstance(imgs, torch.Tensor):
-            features = self.get_tensor_features(imgs)
         else:
-            raise NotImplementedError(f"Cannot get features from {type(imgs)}")
+            raise NotImplementedError(
+                f"Cannot get features from '{type(imgs)}'. Expected torch.utils.data.Dataset"
+            )
 
         if self.save_path and name:
             torch.save(features, file_path)
@@ -124,44 +104,3 @@ class FeatureExtractor:
             start_idx = start_idx + feature.shape[0]
 
         return features
-
-    def get_tensor_features(self, img_tensor: torch.Tensor):
-        num_samples = img_tensor.shape[0]
-        num_batches = math.ceil(num_samples / BATCH_SIZE)
-        features = torch.zeros(num_samples, self.features_size)
-
-        def transform_img(img: torch.tensor):
-            img = torchvision.transforms.ToPILImage()(img)
-            img = self.preprocess(img)
-            img = img.unsqueeze(0)
-            return img
-
-        for i in tqdm(range(num_batches), leave=False):
-            idx_beg = BATCH_SIZE * i
-            idx_end = BATCH_SIZE * (i + 1)
-
-            img_batch = img_tensor[idx_beg:idx_end]
-            img_batch = [transform_img(img) for img in img_batch]
-            img_batch = torch.cat(img_batch, dim=0).to(DEVICE)
-            features[idx_beg:idx_end] = self.get_feature_batch(img_batch)
-
-        return features
-
-    def get_dir_features(self, dir: str, name=None):
-        dataset = SamplesDataset(dir)
-        feat = self.get_features(dataset, name)
-        return feat
-
-    def get_model_features(self, gen_fn: function, num_samples: int):
-        img_tensor = gen_fn()
-        batch_size = img_tensor.shape[0]
-
-        num_batches = math.ceil(num_samples / batch_size)
-        features = torch.zeros(num_batches * batch_size, self.features_size)
-
-        for i in tqdm(range(num_batches)):
-            img_tensor = gen_fn()
-            curr_features = self.get_features(img_tensor)
-            features[i * batch_size : (i + 1) * batch_size] = curr_features
-
-        return features[:num_samples]

@@ -1,123 +1,236 @@
-# Feature Likelihood Score: Evaluating Generalization of Generative Models Using Samples
-Repository for computing FLS. Currently, mainly supports evaluating image generation but the code can be extended to other data modalities.
+# Feature Likelihood Score: Evaluating the Generalization of Generative Models Using Samples
+Marco Jiralerspong, Joey Bose, Ian Gemp, Chongli Qin, Yoram Bachrach, Gauthier Gidel
+
+[[Paper](https://arxiv.org/pdf/2302.04440.pdf.)] [[Poster](TODO)]
+
+FLS is a comprehensive, sample-based metric that is sensitive to sample fidelity, diversity **and novelty** (i.e. whether a model is memorizing the training set). Relies on density estimation in a feature space to compute the perceptual likelihood of generated samples.
+- Lower is better
+- Roughly between [0, 100] where 0 corresponds to essentially a perfect model
+
+PyTorch implementation of FLS and other metrics ([FID](https://github.com/mseitzer/pytorch-fid), [KID](https://arxiv.org/abs/1801.01401), [Precision](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), [Recall](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), etc.). Allows for:
+- Computation of metrics from within your Python code (e.g. directly from the generative model)
+- Support for [DINOv2](https://github.com/facebookresearch/dinov2), [Inception-v3](https://arxiv.org/abs/1512.00567) and [CLIP](https://github.com/openai/CLIP) feature spaces.
+
+![Headline plot showing the trichotomic evaluation](media/headline_plot.png "")
+<center><i><b>Left:</b> Trichotomic evaluation of generative models. FLS evaluates all 3 axes concurrently. <b>Right:</b> Copycat, a generative model that only outputs copies of the training set, significantly beats out SOTA models when evaluated using Test FID.</i></center>
+<p></p>
+
+Currently, mainly built for images but all of the metrics can be extended to other modalities (audio, video, tabular, etc.) given appropriate feature extractors.
+
 
 ## Setup
 ```bash
-git clone https://github.com/marcojira/fls.git
-# From venv
-cd fls
-pip install . 
-pip install git+https://github.com/openai/CLIP.git
+pip install git+https://github.com/marcojira/fls.git
 ```
 
 ## Quick start
 Look at `example.ipynb` to see how to get the FLS of a generative model.
-<!-- 
-We provide two ways to compute FLS:
-
-```bash
-# Usage from the command line
-python -m fls --train /path/to/train --test /path/to/test --gen /path/to/generated
-```
 
 ```python
-# Usage from python
-from fls.utils import compute_metrics
+from torchvision.datasets.cifar import CIFAR10
+from fls.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
+from fls.metrics.FLS import FLS
 
-def gen_samples():
-    z = torch.randn(32, 100)
-    return G(z).detach()
+feature_extractor = DINOv2FeatureExtractor()
 
-fls.compute_metrics(train="path/to/train", test="path/to/test", gen=gen_samples)
+train_feat = feature_extractor.get_features(CIFAR10(train=True, download=True))
+test_feat = feature_extractor.get_features(CIFAR10(train=False, download=True))
+
+# From a directory of generated images
+gen_feat = feature_extractor.get_dir_features("/path/to/images", extension="png")
+
+fls_val = FLS().compute_metric(train_feat, test_feat, gen_feat)
+print(f"FLS: {fls_val:.3f}")
+
+# For other metrics
+from fls.metrics.FID import FID
+fid_val = FID().compute_metric(train_feat, None, gen_feat)
+print(f"FID: {fid_val:.3f}")
 ```
+
+**Note: While FLS is originally designed to evaluate sample novelty through the use of a test set, it can also be used without a test set. To do so, simply pass a small proportion of the train set to the metric instead of the training features. Note that doing so will yield a metric that is less sensitive to overfitting (as training samples that are memorized will get a high likelihood).**
+
+
+
+## Standard Evaluation
+**IMPORTANT:** For a comparable evaluation of FLS on CIFAR10, FFHQ and ImageNet, use the following settings:
+- 10k generated samples
+- DINOv2 feature space
+- CIFAR10:
+    - Train: Entire set (50k images)
+    - Test: Entire set (10k images)
+- FFHQ:
+    - Train: First 60k images (of 70k)
+    - Test: Last 10k images (i.e. the validation set described in https://github.com/NVlabs/ffhq-dataset)
+- ImageNet (using the following [ImageNet subset](https://drive.google.com/file/d/1kbAvWrXw_GCE4ulMlx5zlfVOG_v6iMM7/view?usp=drive_link)):
+    - Train: Entire train set (from the above)
+    - Test: Entire test set (from the above)
+
 
 ## Advanced usage
-Computing FLS requires 3 sets of samples. For each, we recommend using **10000 samples** (less will yield less accurate results and more will run into memory issues due to the computation of the pairwise distances, though switching from full batch gradient descent to SGD will resolve the memory issue). These sets are:
-- **Training samples**: Used to train the generative model.
-- **Test samples**: From the same distribution as the training samples but were not used to train the generative model
-- **Generated samples**: Generated by the generative model
+The evaluation pipeline goes Data => Features => Metrics.
+### Data
+To get the train, test or gen features, data can be provided to the feature extractors in the following formats
+```python
+from fls.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
 
-Each of these sets can come from 3 sources:
-### Folder of images
-Path to a folder containing image samples (either as `.jpg`, `jpeg`, `bmp` or `.png`).
+feature_extractor = DINOv2FeatureExtractor()
 
-### Pre-computed features in a `.pkl` file
-Path to a `.pkl` file which contains a NxD tensor of sample features (where N is the number of samples and D is the dimensionality of the feature space).
+# torch.utils.Dataset (e.g. torchvision.datasets but could also be your own custom class)
+from torchvision.datasets.cifar import CIFAR10
+feat = feature_extractor.get_features(CIFAR10(train=True, download=True))
 
-### Python function (without arguments) that returns samples
-For use from Python (to skip over the time-consuming process of saving samples to disk and then loading them).
+# Directory of samples (will create a dataset from all images in that directory that match `extesion`, found recursively)
+feat = feature_extractor.get_dir_features("/path/to/images", extension="jpg")
 
-```bash
-# Usage from the command line combining first two methods
-python -m fls --train /path/to/train --test /path/to/test.pkl --gen/path/to/generated
+# Image tensor of float32 of size N x C x H x W in range [0, 1]
+img_tensor = torch.rand((10000, 3, 32, 32))
+feat = feature_extractor.get_tensor_features(img_tensor)
 ```
+
+### Feature extraction
+The `FeatureExtractor` class is designed to map images to the given feature space where metrics are computed.
+
+#### Changing feature extractor
+Currently supports DINOv2, CLIP and Inception-v3 (DINOv2 is recommended)
+```python
+from fls.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
+from fls.features.CLIPFeatureExtractor import CLIPFeatureExtractor
+from fls.features.InceptionFeatureExtractor import InceptionFeatureExtractor
+
+feature_extractor = CLIPFeatureExtractor() # or InceptionFeatureExtractor()
+```
+
+#### Feature caching
+Feature extraction can be relatively computationally expensive. By caching features, you can save yourselves from recomputing features unnecessarily. For example, if you want to evaluate model performance over the course of training, the train/test set features should only be computed once at the start of training and can then be retrieved from the cache for subsequent evaluations. To do so:
 
 ```python
-# Usage from python combining all three methods.
-from fls.utils import compute_metrics
+# First specify where the features should be cached when creating the feature extractor
+feature_extractor = DINOv2FeatureExtractor(save_path="/path/to/save/features")
 
-# Example of a function that returns samples from some generated model
-def gen_samples():
-    # Returned samples must be in a tensor of shape (N, C, H, W)
-    z = torch.randn(32, 100)
-    # Supposing G is some GAN that takes a latent z
-    return G(z).detach() 
+# Then, pass `name` when getting features you want to cache
+train_feat = feature_extractor.get_features(CIFAR10(train=True, download=True), name="CIFAR10_train") # Will cache
+test_feat = feature_extractor.get_features(CIFAR10(train=False, download=True)) # Won't cache
 
-fls.compute_metrics(train="path/to/train.", test="path/to/test.pkl", gen=gen_samples)
+gen_feat = feature_extractor.get_dir_features("/path/to/images", extension="png", name="CIFAR10_gen_epoch_0") # Will cache
+
+# Finally, if you get features with the same `name` after that at any point, will retrieve from cache
+train_feat = feature_extractor.get_features(CIFAR10(train=True, download=True), name="CIFAR10_train")
 ```
 
-## Process
-To compute metrics on samples, the following steps are followed: 
-- Samples: e.g. folder of `.png`.
-- -> Dataset: torch.utils.Dataset made from the samples.
-- -> Features: tensor of size `n x d`. `n` is the number of samples and `d` the dimension of the feature space.
-- -> Metrics
+#### Adding a feature extractor
+The `FeatureExtractor` class can be extended to use your own feature extractors (see example below, need to change everything where there's a `SPECIFY`).
+```python
+import torch
+import torchvision.transforms as transforms
+from fls.features.ImageFeatureExtractor import ImageFeatureExtractor
 
-The corresponding folders have modules for each of these steps but can be substituted by your own (e.g. if you already have a feature representation of samples, you can pass those directly to a `Metric`).
+class CustomFeatureExtractor(ImageFeatureExtractor):
+    def __init__(self, save_path=None):
+        self.name = f"Custom" # SPECIFY
+        super().__init__(save_path)
 
+        self.features_size = 768 # SPECIFY
 
-## File structure
-The code is structured as follows:
-- `datasets/`: Extensions of PyTorch dataset utilities.
-- `features/`: Modules to map samples to different feature spaces
-- `metrics/`: Modules for computing various metric values (FLS, FID, AuthPct, CTScore)
+        # SPECIFY (function applied to inputs)
+        self.preprocess = lambda x: x
 
-## Metrics
-By default, only FLS is computed. However, it is possible to also compute the following metrics:
-- `"FID"`: Computes the FID score between the training and test samples
-- `"AuthPct"`: Percentage of authentic samples (as per https://arxiv.org/abs/2102.08921)
-- `"CTScore"`: As defined in https://github.com/casey-meehan/data-copying
-- `"FLSoverfit"`: Computes the percentage of overfit Gaussians.
+    # SPECIFY (function that takes batch of preprocessed inputs and returns tensor of features)
+    def get_feature_batch(self, img_batch):
+        pass
 
-To compute other metrics as well, pass a list of metric names to the `metrics` argument:
-```bash
-# Usage from the command line combining first two methods
-python -m fls --train /path/to/train --test /path/to/test.pkl --gen/path/to/generated --metrics FLS FID AuthPct CTScore FLSoverfit
+# Can then use the same caching functionality of other extractors
+feature_extractor = CustomFeatureExtractor(save_path="path/to/features")
+gen_feat = feature_extractor.get_dir_features("/path/to/images", extension="png", name="CIFAR10_gen_epoch_0")```
 ```
+### Metrics
+Currently supported:
+- FLS
+- [AuthPct](https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf) (the % of authentic samples as defined by Authenticity)
+- [CTTest](https://github.com/casey-meehan/data-copying) (the $C_T$ test statistic)
+- [FID](https://github.com/mseitzer/pytorch-fid)
+- [KID](https://arxiv.org/abs/1801.01401)
+- [Precision](https://arxiv.org/abs/1904.06991)
+- [Recall](https://arxiv.org/abs/1904.06991)
+
+To compute other metrics:
+```python
+# All metrics have the function `.compute_metric(train_feat, test_feat, gen_feat)`
+
+""" AuthPct """
+from fls.metrics.AuthPct import AuthPct
+AuthPct().compute_metric(train_feat, test_feat, gen_feat)
+
+""" CTTest """
+from fls.metrics.CTTest import CTTest
+CTTest().compute_metric(train_feat, test_feat, gen_feat)
+
+""" FID """
+from fls.metrics.FID import FID
+# Default FID (50k samples compared to train set)
+FID().compute_metric(train_feat, None, gen_feat)
+# Test FID
+FID(ref_feat="test").compute_metric(None, test_feat, gen_feat)
+
+""" FLS """
+from fls.metrics.FLS import FLS
+# To get Train FLS instead of Test FLS
+FLS(eval_feat="train").compute_metric(train_feat, test_feat, gen_feat)
+
+""" KID """
+from fls.metrics.KID import KID
+# Like FID, can get either Train or Test KID
+KID(ref_feat="test").compute_metric(None, test_feat, gen_feat)
+
+# Precision/Recall
+from fls.metrics.PrecisionRecall import PrecisionRecall
+PrecisionRecall(mode="Precision").compute_metric(train_feat, None, gen_feat) # Default precision
+PrecisionRecall(mode="Recall", num_neighbors=5).compute_metric(train_feat, None, gen_feat) # Recall with k=5
+```
+
+
+## Evaluating overfitting
+To only the degree of overfitting, we recommend looking at the **FLS generalization gap** (i.e. the difference between train and test FLS). The more this value is negative, the more your model is overfitting. This can be done as follows:
+```python
+from fls.metrics.FLS import FLS
+train_fls = FLS(eval_feat="train").compute_metric(train_feat, test_feat, gen_feat)
+test_fls = FLS(eval_feat="test").compute_metric(train_feat, test_feat, gen_feat)
+gen_gap = train_fls - test_fls
+print(f"Generalization Gap FLS: {gen_gap:.3f}")
+```
+## Additional uses
+
+### Detecting memorized samples
+For each generated sample $\{1...j \}$, we denote by $O_j$ the maximum likelihood assigned to a train set sample by the fit gaussian associated to it. $O_j$ acts as a memorization score,  higher it is, the more likely that $x_j$ is memorized.
 
 ```python
-fls.compute_metrics("path/to/train.pkl", "path/to/test.pkl", gen_samples, metrics=["FID", "FLS", "AuthPct", "CTScore", "FLSoverfit"])
+from fls.sample_evaluation import sample_memorization_scores
+memorization_scores = sample_memorization_scores(train_feat, test_feat, gen_feat)
 ```
 
-## Feature caching
-By default, computed features are not cached. However, for sets of features that will be used often, it is possible to cache them in a `.pkl` file. For example when you want to monitor FLS during training, the train set and test set are the same and do not to be mapped to the feature space at every epoch; their features can be cached to save time. To do so, pass a path to the `{train,test,gen}_save` argument.
-
+### Evaluating individual sample quality
+Instead of estimating the density of the generated samples, we can estimate the density of the *test set* and use it to get the likelihood of the
 ```python
-# Calling this for the first time will cache train/test features in their given paths
-fls.compute_metrics("path/to/train", "path/to/test", gen_samples, train_save="path/to/train.pkl", test_save="path/to/test.pkl")
+from fls.sample_evaluation import sample_quality_scores
+quality_scores = sample_quality_scores(train_feat, test_feat, gen_feat)
+```
+**Note: This is somewhat dependent on the feature space (e.g. some image classes are naturally closer in some feature spaces -> higher likelihood)**
 
-# If the features have already been cached, they will be loaded from the given paths
-fls.compute_metrics("path/to/train", "path/to/test", gen_samples, train_save="path/to/train.pkl", test_save="path/to/test.pkl" )
+
+
+## Citing
+If you find this repository useful, please consider citing it:
+```
+@misc{jiralerspong2023feature,
+      title={Feature Likelihood Score: Evaluating Generalization of Generative Models Using Samples},
+      author={Marco Jiralerspong and Avishek Joey Bose and Ian Gemp and Chongli Qin and Yoram Bachrach and Gauthier Gidel},
+      year={2023},
+      eprint={2302.04440},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
 ```
 
-## Feature space
-We provide feature extractors for InceptionV3 (as used in https://github.com/mseitzer/pytorch-fid) and CLIP (https://github.com/openai/CLIP). By default, Inception V3 is used. To change the feature extractor:
-```python
-from features.CLIPFeatureExtractor import CLIPFeatureExtractor
-
-clip = CLIPFeatureExtractor()
-fls.compute_metrics("path/to/train", "path/to/test", gen_samples, feature_extractor=clip)
-```
-
-### Adding a new feature space
-To create your own FeatureExtractor, create a class that inherits from `features/FeatureExtractor.py`. -->
+## Acknowledgements
+The authors acknowledge the material support of NVIDIA in the form of computational resources.
+Joey Bose was generously supported by an IVADO Ph.D. fellowship.

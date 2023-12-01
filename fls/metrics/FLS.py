@@ -59,20 +59,22 @@ class FLS(Metric):
         nll = nlls.mean().item()
 
         if not self.baseline_nll:
-            baseline_nll = self.get_baseline_nll(train_feat, test_feat)
+            baseline_nll = self.get_baseline_nll(
+                train_feat, test_feat, size=len(gen_feat)
+            )
         else:
             baseline_nll = self.baseline_nll
 
         return self.get_nll_diff(nll, baseline_nll)
 
-    def get_baseline_nll(self, train_feat, test_feat):
+    def get_baseline_nll(self, train_feat, test_feat, size=GEN_SIZE):
         """Preprocess"""
         train_feat, test_feat, _ = preprocess_feat(train_feat, test_feat, train_feat)
 
         train_feat = shuffle(train_feat)
 
         # Fit MoGs
-        split_size = min(self.gen_size, len(train_feat) // 2)
+        split_size = min(size, len(train_feat) // 2)
         mog = MoG(train_feat[:split_size])
         mog.fit(train_feat[split_size:])
 

@@ -3,18 +3,15 @@ from PIL import Image
 from pathlib import Path
 
 
-class SamplesDataset(Dataset):
+class ImageFilesDataset(Dataset):
     """
     Creates torch Dataset from directory of images.
     Must be structured as dir/<class>/<img_name>.<extension> for `conditional=True`
     For `conditional=False`, will search recursively for all files that match the extension
     """
 
-    def __init__(
-        self, path, name="", extension="png", transform=None, conditional=False
-    ):
+    def __init__(self, path, extension="png", transform=None, conditional=False):
         self.path = path
-        self.name = name
         self.extension = extension
 
         self.conditional = conditional  # If conditional, will get the class from the parent folder's name

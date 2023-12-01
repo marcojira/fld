@@ -1,10 +1,10 @@
 import torch
 import torchvision.transforms as transforms
 import clip
-from fls.features.FeatureExtractor import FeatureExtractor
+from fls.features.ImageFeatureExtractor import ImageFeatureExtractor
 
 
-class CLIPFeatureExtractor(FeatureExtractor):
+class CLIPFeatureExtractor(ImageFeatureExtractor):
     def __init__(self, save_path=None):
         self.name = "clip"
 

@@ -1,9 +1,9 @@
 import torch
 import torchvision.transforms as transforms
-from fls.features.FeatureExtractor import FeatureExtractor
+from fls.features.ImageFeatureExtractor import ImageFeatureExtractor
 
 
-class DINOv2FeatureExtractor(FeatureExtractor):
+class DINOv2FeatureExtractor(ImageFeatureExtractor):
     def __init__(self, save_path=None):
         self.name = f"dinov2"
         super().__init__(save_path)
