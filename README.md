@@ -5,15 +5,16 @@ Marco Jiralerspong, Joey Bose, Ian Gemp, Chongli Qin, Yoram Bachrach, Gauthier G
 
 FLS is a comprehensive, sample-based metric that is sensitive to sample fidelity, diversity **and novelty** (i.e. whether a model is memorizing the training set). Relies on density estimation in a feature space to compute the perceptual likelihood of generated samples.
 - Lower is better
-- Roughly between [0, 100] where 0 corresponds to essentially a perfect model
-
-PyTorch implementation of FLS and other metrics ([FID](https://github.com/mseitzer/pytorch-fid), [KID](https://arxiv.org/abs/1801.01401), [Precision](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), [Recall](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), etc.). Allows for:
-- Computation of metrics from within your Python code (e.g. directly from the generative model)
-- Support for [DINOv2](https://github.com/facebookresearch/dinov2), [Inception-v3](https://arxiv.org/abs/1512.00567) and [CLIP](https://github.com/openai/CLIP) feature spaces.
+- Roughly between [0, 100] where 0 corresponds to a perfect model
 
 ![Headline plot showing the trichotomic evaluation](media/headline_plot.png "")
 <center><i><b>Left:</b> Trichotomic evaluation of generative models. FLS evaluates all 3 axes concurrently. <b>Right:</b> Copycat, a generative model that only outputs copies of the training set, significantly beats out SOTA models when evaluated using Test FID.</i></center>
 <p></p>
+
+
+PyTorch implementation of FLS and other metrics ([FID](https://github.com/mseitzer/pytorch-fid), [KID](https://arxiv.org/abs/1801.01401), [Precision](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), [Recall](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), etc.). Allows for:
+- Computation of metrics from within your Python code (e.g. directly from the generative model)
+- Support for [DINOv2](https://github.com/facebookresearch/dinov2), [Inception-v3](https://arxiv.org/abs/1512.00567) and [CLIP](https://github.com/openai/CLIP) feature spaces.
 
 Currently, mainly built for images but all of the metrics can be extended to other modalities (audio, video, tabular, etc.) given appropriate feature extractors.
 
@@ -24,8 +25,6 @@ pip install git+https://github.com/marcojira/fls.git
 ```
 
 ## Quick start
-Look at `example.ipynb` to see how to get the FLS of a generative model.
-
 ```python
 from torchvision.datasets.cifar import CIFAR10
 from fls.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
@@ -182,7 +181,7 @@ from fls.metrics.KID import KID
 # Like FID, can get either Train or Test KID
 KID(ref_feat="test").compute_metric(None, test_feat, gen_feat)
 
-# Precision/Recall
+""" Precision/Recall """
 from fls.metrics.PrecisionRecall import PrecisionRecall
 PrecisionRecall(mode="Precision").compute_metric(train_feat, None, gen_feat) # Default precision
 PrecisionRecall(mode="Recall", num_neighbors=5).compute_metric(train_feat, None, gen_feat) # Recall with k=5
