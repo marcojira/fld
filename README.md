@@ -79,7 +79,7 @@ feature_extractor = DINOv2FeatureExtractor()
 from torchvision.datasets.cifar import CIFAR10
 feat = feature_extractor.get_features(CIFAR10(train=True, download=True))
 
-# Directory of samples (will create a dataset from all images in that directory that match `extesion`, found recursively)
+# Directory of samples (will create a dataset from all images in that directory that match `extension`, found recursively)
 feat = feature_extractor.get_dir_features("/path/to/images", extension="jpg")
 
 # Image tensor of float32 of size N x C x H x W in range [0, 1]
