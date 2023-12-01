@@ -12,10 +12,6 @@ from fls.MoG import preprocess_feat, MoG
 
 GEN_SIZE = 10000
 
-curr_path = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(curr_path, "baseline_nlls.json"), "rb") as f:
-    baseline_nlls = json.load(f)
-
 
 class FLS(Metric):
     def __init__(self, eval_feat="test", baseline_nll=None, gen_size=GEN_SIZE):
