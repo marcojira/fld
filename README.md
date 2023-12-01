@@ -32,8 +32,9 @@ from fls.metrics.FLS import FLS
 
 feature_extractor = DINOv2FeatureExtractor()
 
-train_feat = feature_extractor.get_features(CIFAR10(train=True, download=True))
-test_feat = feature_extractor.get_features(CIFAR10(train=False, download=True))
+train_feat = feature_extractor.get_features(CIFAR10(train=True, root="data", download=True))
+test_feat = feature_extractor.get_features(CIFAR10(train=False, root="data", download=True))
+
 
 # From a directory of generated images
 gen_feat = feature_extractor.get_dir_features("/path/to/images", extension="png")
@@ -77,7 +78,7 @@ feature_extractor = DINOv2FeatureExtractor()
 
 # torch.utils.Dataset (e.g. torchvision.datasets but could also be your own custom class)
 from torchvision.datasets.cifar import CIFAR10
-feat = feature_extractor.get_features(CIFAR10(train=True, download=True))
+feat = feature_extractor.get_features(CIFAR10(train=True, root="data", download=True))
 
 # Directory of samples (will create a dataset from all images in that directory that match `extension`, found recursively)
 feat = feature_extractor.get_dir_features("/path/to/images", extension="jpg")
@@ -108,13 +109,13 @@ Feature extraction can be relatively computationally expensive. By caching featu
 feature_extractor = DINOv2FeatureExtractor(save_path="/path/to/save/features")
 
 # Then, pass `name` when getting features you want to cache
-train_feat = feature_extractor.get_features(CIFAR10(train=True, download=True), name="CIFAR10_train") # Will cache
-test_feat = feature_extractor.get_features(CIFAR10(train=False, download=True)) # Won't cache
+train_feat = feature_extractor.get_features(CIFAR10(train=True, root="data", download=True), name="CIFAR10_train") # Will cache
+test_feat = feature_extractor.get_features(CIFAR10(train=False, root="data", download=True)) # Won't cache
 
 gen_feat = feature_extractor.get_dir_features("/path/to/images", extension="png", name="CIFAR10_gen_epoch_0") # Will cache
 
 # Finally, if you get features with the same `name` after that at any point, will retrieve from cache
-train_feat = feature_extractor.get_features(CIFAR10(train=True, download=True), name="CIFAR10_train")
+train_feat = feature_extractor.get_features(CIFAR10(train=True, root="data", download=True), name="CIFAR10_train")
 ```
 
 #### Adding a feature extractor
@@ -206,6 +207,8 @@ For each generated sample $\{1...j \}$, we denote by $O_j$ the maximum likelihoo
 from fls.sample_evaluation import sample_memorization_scores
 memorization_scores = sample_memorization_scores(train_feat, test_feat, gen_feat)
 ```
+
+**Note: Potential of running into memory issues when passing too many generated samples **
 
 ### Evaluating individual sample quality
 Instead of estimating the density of the generated samples, we can estimate the density of the *test set* and use it to get the likelihood of the

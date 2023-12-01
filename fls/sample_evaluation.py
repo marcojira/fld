@@ -37,11 +37,6 @@ def sample_memorization_scores(train_feat, test_feat, gen_feat, batch_size=BATCH
 
     A higher score (i.e. LL) indicates a more memorized sample
     """
-    idx = np.random.choice(len(gen_feat), len(gen_feat), replace=False)
-    # Getting the indices of the sorted idx reverses the mapping 0->n1, 2->n2, etc.
-    gen_feat = gen_feat[idx]
-    reverse_idx = torch.tensor(idx).sort().indices
-
     train_feat, test_feat, gen_feat = preprocess_feat(train_feat, test_feat, gen_feat)
     mog_gen = MoG(gen_feat)
     mog_gen.fit(train_feat)
@@ -52,7 +47,7 @@ def sample_memorization_scores(train_feat, test_feat, gen_feat, batch_size=BATCH
         pairwise_lls = mog_gen.pairwise_lls_from_dists(dists, mog_gen.log_sigmas)
         scores = torch.maximum(scores, pairwise_lls.max(dim=0).values)
 
-    return scores[reverse_idx] / train_feat.shape[1]
+    return scores / train_feat.shape[1]
 
 
 def nn(base_feat, other_feat, batch_size=BATCH_SIZE):
