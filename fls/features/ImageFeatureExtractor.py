@@ -15,13 +15,14 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class ImageFeatureExtractor(FeatureExtractor):
-    def get_tensor_features(self, img_tensor: torch.Tensor, name=None):
+    def get_tensor_features(self, img_tensor: torch.Tensor, name=None, recompute=False):
         dataset = ImageTensorDataset(img_tensor)
-        return self.get_features(dataset, name)
+        return self.get_features(dataset, name, recompute)
 
-    def get_dir_features(self, dir: str, extension="png", name=None):
+    def get_dir_features(self, dir: str, extension="png", name=None, recompute=False):
         dataset = ImageFilesDataset(dir, extension=extension)
-        return self.get_features(dataset, name)
+        print(len(dataset))
+        return self.get_features(dataset, name, recompute)
 
     def get_model_features(self, gen_fn: function, num_samples: int):
         img_tensor = gen_fn()
