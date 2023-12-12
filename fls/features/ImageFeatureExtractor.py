@@ -21,7 +21,6 @@ class ImageFeatureExtractor(FeatureExtractor):
 
     def get_dir_features(self, dir: str, extension="png", name=None, recompute=False):
         dataset = ImageFilesDataset(dir, extension=extension)
-        print(len(dataset))
         return self.get_features(dataset, name, recompute)
 
     def get_model_features(self, gen_fn: function, num_samples: int):
