@@ -3,18 +3,17 @@ Marco Jiralerspong, Joey Bose, Ian Gemp, Chongli Qin, Yoram Bachrach, Gauthier G
 
 [[Paper](https://arxiv.org/pdf/2302.04440.pdf.)] [[Poster](TODO)]
 
-FLS is a comprehensive, sample-based metric that is sensitive to sample fidelity, diversity **and novelty** (i.e. whether a model is memorizing the training set). Relies on density estimation in a feature space to compute the perceptual likelihood of generated samples.
-- Lower is better
-- Roughly between [0, 100] where 0 corresponds to a perfect model
+PyTorch implementation of FLS and other metrics ([FID](https://github.com/mseitzer/pytorch-fid), [KID](https://arxiv.org/abs/1801.01401), [Precision](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), [Recall](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), etc.) with support for [DINOv2](https://github.com/facebookresearch/dinov2), [Inception-v3](https://arxiv.org/abs/1512.00567) and [CLIP](https://github.com/openai/CLIP) feature spaces. Allows for computation of metrics **from within your Python code** (e.g. directly from the generative model)
+
 
 ![Headline plot showing the trichotomic evaluation](media/headline_plot.png "")
 <center><i><b>Left:</b> Trichotomic evaluation of generative models. FLS evaluates all 3 axes concurrently. <b>Right:</b> Copycat, a generative model that only outputs copies of the training set, significantly beats out SOTA models when evaluated using Test FID.</i></center>
 <p></p>
 
+FLS is a comprehensive, sample-based metric that is sensitive to sample fidelity, diversity **and novelty** (i.e. whether a model is memorizing the training set). Relies on density estimation in a feature space to compute the perceptual likelihood of generated samples.
+- Lower is better
+- Roughly between [0, 100] where 0 corresponds to a perfect model
 
-PyTorch implementation of FLS and other metrics ([FID](https://github.com/mseitzer/pytorch-fid), [KID](https://arxiv.org/abs/1801.01401), [Precision](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), [Recall](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), etc.). Allows for:
-- Computation of metrics from within your Python code (e.g. directly from the generative model)
-- Support for [DINOv2](https://github.com/facebookresearch/dinov2), [Inception-v3](https://arxiv.org/abs/1512.00567) and [CLIP](https://github.com/openai/CLIP) feature spaces.
 
 Currently, mainly built for images but all of the metrics can be extended to other modalities (audio, video, tabular, etc.) given appropriate feature extractors.
 
