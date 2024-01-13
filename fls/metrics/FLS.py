@@ -17,7 +17,7 @@ class FLS(Metric):
     def __init__(self, eval_feat="test", baseline_nll=None, gen_size=GEN_SIZE):
         super().__init__()
 
-        # One of ("train", "test")
+        # One of ("train", "test", "gap")
         # Corresponds to the set whose likelihood is evaluated with the MoG
         self.eval_feat = eval_feat
         self.name = f"FLS {eval_feat.title()}"
@@ -49,6 +49,10 @@ class FLS(Metric):
         # As above but evalutes the LL of train samples
         elif self.eval_feat == "train":
             nlls = mog_gen.get_dim_adjusted_nlls(train_feat)
+        elif self.eval_feat == "gap":
+            train_nll = nlls = mog_gen.get_dim_adjusted_nlls(train_feat).mean().item()
+            test_nll = mog_gen.get_dim_adjusted_nlls(test_feat).mean().item()
+            return (train_nll - test_nll) * 100
         else:
             raise Exception(f"Invalid mode for FLS metric: {self.eval_feat}")
 
