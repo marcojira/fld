@@ -1,8 +1,9 @@
-torch
+torch>=1.13.0
+torchvision>=0.13.0
+
 numpy
 tqdm
 pandas
-torchvision==0.14
 scikit-learn
 scipy
 pytorch-fid
