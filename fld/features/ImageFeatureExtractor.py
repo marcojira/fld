@@ -6,9 +6,9 @@ import torchvision
 
 from tqdm import tqdm
 
-from fls.features.FeatureExtractor import FeatureExtractor
-from fls.datasets.ImageFilesDataset import ImageFilesDataset
-from fls.datasets.ImageTensorDataset import ImageTensorDataset
+from fld.features.FeatureExtractor import FeatureExtractor
+from fld.datasets.ImageFilesDataset import ImageFilesDataset
+from fld.datasets.ImageTensorDataset import ImageTensorDataset
 
 BATCH_SIZE = 256
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -1,6 +1,6 @@
-from fls.features.InceptionFeatureExtractor import InceptionFeatureExtractor
-from fls.features.CLIPFeatureExtractor import CLIPFeatureExtractor
-from fls.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
+from fld.features.InceptionFeatureExtractor import InceptionFeatureExtractor
+from fld.features.CLIPFeatureExtractor import CLIPFeatureExtractor
+from fld.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
 
 ALL_FEATURE_EXTRACTORS = [
     InceptionFeatureExtractor(),

@@ -1,7 +1,7 @@
 import torch
 import torchvision.transforms as transforms
 import clip
-from fls.features.ImageFeatureExtractor import ImageFeatureExtractor
+from fld.features.ImageFeatureExtractor import ImageFeatureExtractor
 
 
 class CLIPFeatureExtractor(ImageFeatureExtractor):

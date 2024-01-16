@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-from fls.MoG import MoG, compute_dists, preprocess_feat
-from fls.utils import shuffle
+from fld.MoG import MoG, compute_dists, preprocess_feat
+from fld.utils import shuffle
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 10000

@@ -1,33 +1,38 @@
-# Feature Likelihood Score: Evaluating the Generalization of Generative Models Using Samples
+# Feature Likelihood Divergence: Evaluating the Generalization of Generative Models Using Samples
 Marco Jiralerspong, Joey Bose, Ian Gemp, Chongli Qin, Yoram Bachrach, Gauthier Gidel
 
-[[Paper](https://arxiv.org/pdf/2302.04440.pdf.)] [[Poster](TODO)]
 
-PyTorch implementation of FLS and other metrics ([FID](https://github.com/mseitzer/pytorch-fid), [KID](https://arxiv.org/abs/1801.01401), [Precision](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), [Recall](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), etc.) with support for [DINOv2](https://github.com/facebookresearch/dinov2), [Inception-v3](https://arxiv.org/abs/1512.00567) and [CLIP](https://github.com/openai/CLIP) feature spaces. Allows for computation of metrics **from within your Python code** (e.g. directly from the generative model)
+[[Paper](https://arxiv.org/pdf/2302.04440.pdf)] [[Poster](https://neurips.cc/virtual/2023/poster/70620)]
+
+PyTorch implementation of FLD, a new metric for generative models that is sensitive to overfitting/memorization. Also contains support for other metrics ([FID](https://github.com/mseitzer/pytorch-fid), [KID](https://arxiv.org/abs/1801.01401), [Precision](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), [Recall](https://proceedings.neurips.cc/paper/2019/hash/0234c510bc6d908b28c70ff313743079-Abstract.html), etc.) with support for [DINOv2](https://github.com/facebookresearch/dinov2), [Inception-v3](https://arxiv.org/abs/1512.00567) and [CLIP](https://github.com/openai/CLIP) feature spaces. Allows for computation of metrics **from within your Python code** (e.g. directly from the generative model).
 
 
 ![Headline plot showing the trichotomic evaluation](media/headline_plot.png "")
-<center><i><b>Left:</b> Trichotomic evaluation of generative models. FLS evaluates all 3 axes concurrently. <b>Right:</b> Copycat, a generative model that only outputs copies of the training set, significantly beats out SOTA models when evaluated using Test FID.</i></center>
+<center><i><b>Left:</b> Trichotomic evaluation of generative models. FLD evaluates all 3 axes concurrently. <b>Right:</b> Copycat, a generative model that only outputs copies of the training set, significantly beats out SOTA models when evaluated using Test FID.</i></center>
 <p></p>
 
-FLS is a comprehensive, sample-based metric that is sensitive to sample fidelity, diversity **and novelty** (i.e. whether a model is memorizing the training set). Relies on density estimation in a feature space to compute the perceptual likelihood of generated samples.
+FLD is a comprehensive, sample-based metric that is sensitive to sample fidelity, diversity **and novelty** (i.e. overfitting and whether a model is memorizing the training set). Relies on density estimation in a feature space to compute the perceptual likelihood of generated samples.
 - Lower is better
 - Roughly between [0, 100] where 0 corresponds to a perfect model
 
 
 Currently, mainly built for images but all of the metrics can be extended to other modalities (audio, video, tabular, etc.) given appropriate feature extractors.
 
+#### 📣 UPDATE: The Feature Likelihood Score (FLS) has been renamed to Feature Likelihood Divergence (FLD). If your code uses the old version, `fls` can be installed using::
+```bash
+pip install git+https://github.com/marcojira/fld.git@b9db224
+```
 
 ## Setup
 ```bash
-pip install git+https://github.com/marcojira/fls.git
+pip install git+https://github.com/marcojira/fld.git
 ```
 
 ## Quick start
 ```python
 from torchvision.datasets.cifar import CIFAR10
-from fls.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
-from fls.metrics.FLS import FLS
+from fld.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
+from fld.metrics.FLD import FLD
 
 feature_extractor = DINOv2FeatureExtractor()
 
@@ -38,21 +43,21 @@ test_feat = feature_extractor.get_features(CIFAR10(train=False, root="data", dow
 # From a directory of generated images
 gen_feat = feature_extractor.get_dir_features("/path/to/images", extension="png")
 
-fls_val = FLS().compute_metric(train_feat, test_feat, gen_feat)
-print(f"FLS: {fls_val:.3f}")
+fld_val = FLD().compute_metric(train_feat, test_feat, gen_feat)
+print(f"FLD: {fld_val:.3f}")
 
 # For other metrics
-from fls.metrics.FID import FID
+from fld.metrics.FID import FID
 fid_val = FID().compute_metric(train_feat, None, gen_feat)
 print(f"FID: {fid_val:.3f}")
 ```
 
-**Note: While FLS is originally designed to evaluate sample novelty through the use of a test set, it can also be used without a test set. To do so, simply pass a small proportion of the train set to the metric instead of the training features. Note that doing so will yield a metric that is less sensitive to overfitting (as training samples that are memorized will get a high likelihood).**
+**Note: While FLD is originally designed to evaluate sample novelty through the use of a test set, it can also be used without a test set. To do so, simply pass a small proportion of the train set to the metric instead of the training features. Note that doing so will yield a metric that is less sensitive to overfitting (as training samples that are memorized will get a high likelihood).**
 
 
 
 ## Standard Evaluation
-**IMPORTANT:** For a comparable evaluation of FLS on CIFAR10, FFHQ and ImageNet, use the following settings:
+**IMPORTANT:** For a comparable evaluation of FLD on CIFAR10, FFHQ and ImageNet, use the following settings:
 - 10k generated samples
 - DINOv2 feature space
 - CIFAR10:
@@ -65,13 +70,20 @@ print(f"FID: {fid_val:.3f}")
     - Train: Entire train set (from the above)
     - Test: Entire test set (from the above)
 
+## Evaluating overfitting
+To only the degree of overfitting, we recommend looking at the **FLD generalization gap** (i.e. the difference between train and test FLD). The more this value is negative, the more your model is overfitting. This can be done as follows:
+```python
+from fld.metrics.FLD import FLD
+train_fld = FLD(eval_feat="gap").compute_metric(train_feat, test_feat, gen_feat)
+print(f"Generalization Gap FLD: {gen_gap:.3f}")
+```
 
-## Advanced usage
+# Advanced usage
 The evaluation pipeline goes Data => Features => Metrics.
 ### Data
 To get the train, test or gen features, data can be provided to the feature extractors in the following formats
 ```python
-from fls.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
+from fld.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
 
 feature_extractor = DINOv2FeatureExtractor()
 
@@ -83,8 +95,15 @@ feat = feature_extractor.get_features(CIFAR10(train=True, root="data", download=
 feat = feature_extractor.get_dir_features("/path/to/images", extension="jpg")
 
 # Image tensor of float32 of size N x C x H x W in range [0, 1]
-img_tensor = torch.rand((10000, 3, 32, 32))
+img_tensor = torch.rand((10_000, 3, 32, 32))
 feat = feature_extractor.get_tensor_features(img_tensor)
+
+# Generate function for model that returns tensor of float32 of size B x C x H x W in range [0, 1]
+def gen_fn(x):
+    x = torch.randn(128, 100)
+    return model(x)
+
+feat = feature_extractor.get_model_features(gen_fn, num_samples=10_000)
 ```
 
 ### Feature extraction
@@ -93,9 +112,9 @@ The `FeatureExtractor` class is designed to map images to the given feature spac
 #### Changing feature extractor
 Currently supports DINOv2, CLIP and Inception-v3 (DINOv2 is recommended)
 ```python
-from fls.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
-from fls.features.CLIPFeatureExtractor import CLIPFeatureExtractor
-from fls.features.InceptionFeatureExtractor import InceptionFeatureExtractor
+from fld.features.DINOv2FeatureExtractor import DINOv2FeatureExtractor
+from fld.features.CLIPFeatureExtractor import CLIPFeatureExtractor
+from fld.features.InceptionFeatureExtractor import InceptionFeatureExtractor
 
 feature_extractor = CLIPFeatureExtractor() # or InceptionFeatureExtractor()
 ```
@@ -122,7 +141,7 @@ The `FeatureExtractor` class can be extended to use your own feature extractors 
 ```python
 import torch
 import torchvision.transforms as transforms
-from fls.features.ImageFeatureExtractor import ImageFeatureExtractor
+from fld.features.ImageFeatureExtractor import ImageFeatureExtractor
 
 class CustomFeatureExtractor(ImageFeatureExtractor):
     def __init__(self, save_path=None):
@@ -144,7 +163,7 @@ gen_feat = feature_extractor.get_dir_features("/path/to/images", extension="png"
 ```
 ### Metrics
 Currently supported:
-- FLS
+- FLD
 - [AuthPct](https://proceedings.mlr.press/v162/alaa22a/alaa22a.pdf) (the % of authentic samples as defined by Authenticity)
 - [CTTest](https://github.com/casey-meehan/data-copying) (the $C_T$ test statistic)
 - [FID](https://github.com/mseitzer/pytorch-fid)
@@ -157,62 +176,52 @@ To compute other metrics:
 # All metrics have the function `.compute_metric(train_feat, test_feat, gen_feat)`
 
 """ AuthPct """
-from fls.metrics.AuthPct import AuthPct
+from fld.metrics.AuthPct import AuthPct
 AuthPct().compute_metric(train_feat, test_feat, gen_feat)
 
 """ CTTest """
-from fls.metrics.CTTest import CTTest
+from fld.metrics.CTTest import CTTest
 CTTest().compute_metric(train_feat, test_feat, gen_feat)
 
 """ FID """
-from fls.metrics.FID import FID
+from fld.metrics.FID import FID
 # Default FID (50k samples compared to train set)
 FID().compute_metric(train_feat, None, gen_feat)
 # Test FID
 FID(ref_feat="test").compute_metric(None, test_feat, gen_feat)
 
-""" FLS """
-from fls.metrics.FLS import FLS
-# To get Train FLS instead of Test FLS
-FLS(eval_feat="train").compute_metric(train_feat, test_feat, gen_feat)
+""" FLD """
+from fld.metrics.FLD import FLD
+# To get Train FLD instead of Test FLD
+FLD(eval_feat="train").compute_metric(train_feat, test_feat, gen_feat)
 
 """ KID """
-from fls.metrics.KID import KID
+from fld.metrics.KID import KID
 # Like FID, can get either Train or Test KID
 KID(ref_feat="test").compute_metric(None, test_feat, gen_feat)
 
 """ Precision/Recall """
-from fls.metrics.PrecisionRecall import PrecisionRecall
+from fld.metrics.PrecisionRecall import PrecisionRecall
 PrecisionRecall(mode="Precision").compute_metric(train_feat, None, gen_feat) # Default precision
 PrecisionRecall(mode="Recall", num_neighbors=5).compute_metric(train_feat, None, gen_feat) # Recall with k=5
 ```
 
-
-## Evaluating overfitting
-To only the degree of overfitting, we recommend looking at the **FLS generalization gap** (i.e. the difference between train and test FLS). The more this value is negative, the more your model is overfitting. This can be done as follows:
-```python
-from fls.metrics.FLS import FLS
-train_fls = FLS(eval_feat="train").compute_metric(train_feat, test_feat, gen_feat)
-test_fls = FLS(eval_feat="test").compute_metric(train_feat, test_feat, gen_feat)
-gen_gap = train_fls - test_fls
-print(f"Generalization Gap FLS: {gen_gap:.3f}")
-```
 ## Additional uses
 
 ### Detecting memorized samples
 For each generated sample $\{1...j \}$, we denote by $O_j$ the maximum likelihood assigned to a train set sample by the fit gaussian associated to it. $O_j$ acts as a memorization score,  higher it is, the more likely that $x_j$ is memorized.
 
 ```python
-from fls.sample_evaluation import sample_memorization_scores
+from fld.sample_evaluation import sample_memorization_scores
 memorization_scores = sample_memorization_scores(train_feat, test_feat, gen_feat)
 ```
 
 **Note: Potential of running into memory issues when passing too many generated samples **
 
-### Evaluating individual sample quality
+### Evaluating individual sample likelihood
 Instead of estimating the density of the generated samples, we can estimate the density of the *test set* and use it to get the likelihood of the
 ```python
-from fls.sample_evaluation import sample_quality_scores
+from fld.sample_evaluation import sample_quality_scores
 quality_scores = sample_quality_scores(train_feat, test_feat, gen_feat)
 ```
 **Note: This is somewhat dependent on the feature space (e.g. some image classes are naturally closer in some feature spaces -> higher likelihood)**

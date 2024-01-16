@@ -5,7 +5,7 @@ from scipy.stats import mannwhitneyu
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 
-from fls.metrics.Metric import Metric
+from fld.metrics.Metric import Metric
 
 
 def Zu(Pn, Qm, T):

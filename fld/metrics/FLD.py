@@ -5,22 +5,22 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import json
 
-from fls.utils import shuffle
-from fls.metrics.Metric import Metric
-from fls.MoG import preprocess_feat, MoG
+from fld.utils import shuffle
+from fld.metrics.Metric import Metric
+from fld.MoG import preprocess_feat, MoG
 
 
 GEN_SIZE = 10000
 
 
-class FLS(Metric):
+class FLD(Metric):
     def __init__(self, eval_feat="test", baseline_nll=None, gen_size=GEN_SIZE):
         super().__init__()
 
         # One of ("train", "test", "gap")
         # Corresponds to the set whose likelihood is evaluated with the MoG
         self.eval_feat = eval_feat
-        self.name = f"FLS {eval_feat.title()}"
+        self.name = f"FLD {eval_feat.title()}"
 
         # Corresponds to the likelihood of the test set under a MoG centered at half of the train set fit to the other half of the train set
         self.baseline_nll = baseline_nll
@@ -54,7 +54,7 @@ class FLS(Metric):
             test_nll = mog_gen.get_dim_adjusted_nlls(test_feat).mean().item()
             return (train_nll - test_nll) * 100
         else:
-            raise Exception(f"Invalid mode for FLS metric: {self.eval_feat}")
+            raise Exception(f"Invalid mode for FLD metric: {self.eval_feat}")
 
         nll = nlls.mean().item()
 

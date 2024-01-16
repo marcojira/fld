@@ -1,8 +1,8 @@
 # From https://github.com/toshas/torch-fidelity/blob/master/torch_fidelity/metric_kid.py
 import numpy as np
 import torch
-from fls.metrics.Metric import Metric
-from fls.utils import shuffle
+from fld.metrics.Metric import Metric
+from fld.utils import shuffle
 from tqdm import tqdm
 
 

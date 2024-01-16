@@ -1,6 +1,6 @@
 import torch
 import torchvision.transforms as transforms
-from fls.features.ImageFeatureExtractor import ImageFeatureExtractor
+from fld.features.ImageFeatureExtractor import ImageFeatureExtractor
 
 
 class DINOv2FeatureExtractor(ImageFeatureExtractor):

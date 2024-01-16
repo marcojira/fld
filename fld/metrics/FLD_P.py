@@ -5,22 +5,22 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import json
 
-from fls.utils import shuffle
-from fls.metrics.Metric import Metric
-from fls.MoG import preprocess_feat, MoG
+from fld.utils import shuffle
+from fld.metrics.Metric import Metric
+from fld.MoG import preprocess_feat, MoG
 
 
 GEN_SIZE = 10000
 TEST_SIZE = 10000
 
 
-class FLS_P(Metric):
-    """Precision equivalent of FLS (i.e. model the density of the test and get likelihood of gen)"""
+class FLD_P(Metric):
+    """Precision equivalent of FLD (i.e. model the density of the test and get likelihood of gen)"""
 
     def __init__(self, baseline_nll=None, gen_size=GEN_SIZE, test_size=TEST_SIZE):
         super().__init__()
 
-        self.name = f"FLS-P"
+        self.name = f"FLD-P"
 
         # Corresponds to the likelihood of the test set under a MoG centered at half of the train set fit to the other half of the train set
         self.baseline_nll = baseline_nll

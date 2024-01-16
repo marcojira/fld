@@ -1,8 +1,8 @@
 # Faster implementation of Authenticity metric defined here https://arxiv.org/abs/2102.08921
 
 import torch
-from fls.metrics.Metric import Metric
-from fls.utils import shuffle
+from fld.metrics.Metric import Metric
+from fld.utils import shuffle
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

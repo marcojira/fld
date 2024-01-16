@@ -1,8 +1,8 @@
 # Taken from https://github.com/mseitzer/pytorch-fid
 import numpy as np
 from scipy import linalg
-from fls.metrics.Metric import Metric
-from fls.utils import shuffle
+from fld.metrics.Metric import Metric
+from fld.utils import shuffle
 
 
 def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):

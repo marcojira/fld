@@ -3,7 +3,7 @@ from pytorch_fid.inception import InceptionV3
 import torchvision.transforms as TF
 import torch
 
-from fls.features.ImageFeatureExtractor import ImageFeatureExtractor
+from fld.features.ImageFeatureExtractor import ImageFeatureExtractor
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
