@@ -16,6 +16,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class ImageFeatureExtractor(FeatureExtractor):
     def get_tensor_features(self, img_tensor: torch.Tensor, name=None, recompute=False):
+        img_tensor = (
+            img_tensor.cpu()
+        )  # Ensure the tensor is on CPU (required for ToPilImage)
         dataset = ImageTensorDataset(img_tensor)
         return self.get_features(dataset, name, recompute)
 
