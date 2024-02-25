@@ -126,6 +126,7 @@ class MoG:
         self.log_sigmas.data = ((min_dists + 1e-3) / x.shape[1]).log()
 
         for epoch in tqdm(range(self.num_epochs), leave=False):
+            epoch_losses = []
             for i, batch in enumerate(x.split(batch_size)):
                 optim.zero_grad()
 
@@ -150,9 +151,17 @@ class MoG:
 
                 # We clamp log_sigmas to stop NANs for identical samples
                 with torch.no_grad():
-                    self.log_sigmas.data = self.log_sigmas.clamp(-40, 20).data
+                    self.log_sigmas.data = self.log_sigmas.clamp(-40, 40).data
 
-                losses.append(loss.item())
+                epoch_losses.append(loss.item())
+
+            mean_loss = sum(epoch_losses) / len(epoch_losses)
+            losses.append(mean_loss)
+
+            if epoch > 5:
+                max_diff = max([abs(mean_loss - losses[-j]) for j in range(1, 6)])
+                if max_diff < 5e-4:
+                    break
 
         self.log_sigmas = self.log_sigmas.detach()
         return self.log_sigmas, losses
