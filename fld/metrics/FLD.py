@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import json
+import math
+import warnings
 
 from fld.utils import shuffle
 from fld.metrics.Metric import Metric
@@ -52,7 +54,12 @@ class FLD(Metric):
         elif self.eval_feat == "gap":
             train_nll = nlls = mog_gen.get_dim_adjusted_nlls(train_feat).mean().item()
             test_nll = mog_gen.get_dim_adjusted_nlls(test_feat).mean().item()
-            return (train_nll - test_nll) * 100
+            metric_val = self.get_nll_diff(train_nll, test_nll)
+            if metric_val < -1_000:
+                warnings.warn(
+                    "Very high FLD gen gap value: your generated data is likely completely memorized."
+                )
+            return metric_val
         else:
             raise Exception(f"Invalid mode for FLD metric: {self.eval_feat}")
 
@@ -65,7 +72,14 @@ class FLD(Metric):
         else:
             baseline_nll = self.baseline_nll
 
-        return self.get_nll_diff(nll, baseline_nll)
+        metric_val = self.get_nll_diff(nll, baseline_nll)
+
+        if metric_val > 1_000:
+            warnings.warn(
+                "Very high FLD value, your generated data is likely completely memorized."
+            )
+
+        return metric_val
 
     def get_baseline_nll(self, train_feat, test_feat, size=GEN_SIZE):
         """Preprocess"""
